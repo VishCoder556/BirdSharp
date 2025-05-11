@@ -1,0 +1,39 @@
+char *make_str(char num){
+  char *str = malloc(2)
+  deref(str) = num + 48
+  deref(str+1) = '\0'
+  return str
+}
+
+char *char_to_string(char num){
+  char *str = malloc(2)
+  deref(str) = num
+  deref(str+1) = '\0'
+  return str
+}
+
+
+char *int_to_string(int num){ // Does not support negative numbers or 0
+    if (num == 0){
+        return "0"
+    }
+    char *str = malloc(100); // I know this may not be enough space, this is an early implementation
+    int temp = num
+    int j = 0
+    while temp != 0 {
+        deref(str + j) = temp % 10 + 48
+        temp = temp / 10
+        j = j + 1
+    }
+    deref(str + j) = 0
+    int end = j - 1 // We could also do string_len, but this saves some time
+    int begin = 0
+    while begin < end {
+        char temp = deref(str + begin)
+        deref(str+begin) = deref(str+end)
+        deref(str+end) = temp
+        begin = begin + 1
+        end = end - 1
+    }
+    return str;
+}

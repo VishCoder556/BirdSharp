@@ -1,0 +1,12 @@
+#include "code/std.bs"
+int a
+int main(){
+    a = 9
+    print(int_to_string(a))
+    int i = 0
+    while i < argc {
+        print(deref(argv + i * 8))
+        print("\n")
+        i = i + 1
+    }
+}

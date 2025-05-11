@@ -1,0 +1,57 @@
+#!extern InitWindow
+#!extern SetTargetFPS
+#!extern BeginDrawing
+#!extern EndDrawing
+#!extern ClearBackground
+#!extern DrawText
+#!extern WindowShouldClose
+#!extern CloseWindow
+#!extern DrawRectangle
+#!extern IsKeyDown
+#!extern DrawCircle
+
+#macro RED 4278190335 endmacro         // 0xFF0000FF
+#macro GREEN 4278255360 endmacro       // 0xFF00FF00
+#macro BLUE 4294901760 endmacro        // 0xFFFF0000
+#macro WHITE 4294967295 endmacro       // 0xFFFFFFFF
+#macro BLACK 4278190080 endmacro       // 0xFF000000
+#macro YELLOW 4278255615 endmacro      // 0xFF00FFFF
+#macro CYAN 4294967040 endmacro        // 0xFFFFFF00
+#macro MAGENTA 4294902015 endmacro     // 0xFFFF00FF
+#macro GRAY 4286611584 endmacro        // 0xFF808080
+#macro SCREEN_WIDTH 800 endmacro
+#macro SCREEN_HEIGHT 450 endmacro
+
+
+int main(){
+    InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Epic GUI");
+    SetTargetFPS(60)
+    int v = 0
+    int color = GREEN
+    while (!WindowShouldClose()){
+        BeginDrawing();
+        ClearBackground(BLACK);
+
+        DrawText("Hello!", 0, 0, 20, WHITE)
+
+        DrawCircle(200, 200, 50f, color)
+        if (IsKeyDown(259)){
+            color = YELLOW;
+        }else if (IsKeyDown(65)) {
+            color = BLUE;
+            DrawText("Key Down!", 10, SCREEN_HEIGHT - 30, 20, WHITE)
+        }else {
+            color = GREEN
+            DrawText("No Key", 10, SCREEN_HEIGHT - 30, 20, WHITE)
+        }
+        DrawRectangle(v, 225, 50, 100, color)
+        v = v + 3
+        if (v > SCREEN_WIDTH){
+            v = 0
+        }
+        EndDrawing();
+    }
+    CloseWindow();
+    return 0
+}
+
