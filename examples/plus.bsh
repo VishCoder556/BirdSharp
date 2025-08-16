@@ -1,0 +1,12 @@
+#macro SYS_EXIT 33554433 endmacro
+#macro SYS_WRITE 33554436 endmacro
+#macro SYS_OPEN 33554437 endmacro
+#macro SYS_CLOSE 33554438 endmacro
+#macro SYS_READ 33554435 endmacro
+
+char *char_to_string(char c){
+    char *a = malloc(2)
+    deref(a) = c
+    deref(a + 1) = 0
+    return a
+}

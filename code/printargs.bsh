@@ -1,0 +1,71 @@
+int string_len(char *a){
+    int i = 0
+    while (deref(a + i) != cast(char, 0)) {
+        i = i + 1
+    }
+    return i
+}
+
+int exit(int ret){
+    syscall(0x2000001, ret)
+    return 0
+}
+
+int print(char *str){
+    syscall(33554436, 1, str, string_len(str))
+    return 0
+}
+
+int printerr(char *str){
+    syscall(33554436, 2, str, string_len(str))
+    return 0
+}
+
+int *malloc(long size){
+    return cast(int*, syscall(0x20000c5, 0, size, 3, 4098, -1, 0))
+}
+
+char *int_to_string(int num){
+    if (num == 0){
+        return "0"
+    }
+    char *str = cast(char*, malloc(cast(long, 100))); // 100 digits of precision
+    int temp = num
+    int j = 0
+    if (num < 0) {
+        temp = 0 - temp
+    }
+    while temp != 0 {
+        deref(str + cast(long, j)) = cast(char, (temp % 10) + 48)
+        temp = temp / 10
+        j = j + 1
+    }
+    if (num < 0) {
+        deref(str + cast(long, j)) = '-'
+        j = j + 1
+    }
+    int end = j - 1
+    int begin = 0
+    while begin < end {
+        char temp = deref(str + begin)
+        deref(str+begin) = deref(str+end)
+        deref(str+end) = cast(char, temp)
+        begin = begin + 1
+        end = end - 1
+    }
+    deref(str + cast(long, j)) = cast(char, 0)
+    return str;
+}
+
+int main(long argc, char **argv){
+    int i = 0
+    while i < cast(int, argc) {
+        print(deref(argv + i * 8))
+        if ((i + 1) != (cast(int, argc))){
+            print(" ")
+        }
+        i = i + 1
+    }
+    print("\n")
+    return 0
+}

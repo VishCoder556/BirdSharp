@@ -1,0 +1,32 @@
+int string_len(char *a){
+    int i = 0
+    while (deref(a + i) != cast(char, 0)) {
+        i = i + 1
+    }
+    return i
+}
+
+int print(char *str){
+    syscall(33554436, 1, str, string_len(str))
+    return 0
+}
+
+
+
+int *malloc(long size){
+    return cast(int*, syscall(0x20000c5, 0, size, 3, 4098, -1, 0))
+}
+
+int main(){
+    int fd = syscall(0x2000005, "code/main.bsh", 0, 0);
+    if (fd == 0){
+        print("Error\n")
+    }
+    char *str = cast(char*, malloc(cast(long, 2000)));
+    syscall(0x2000003, fd, str, 2000)
+    print(str);
+    syscall(0x2000006, fd);
+    return 0
+}
+
+
