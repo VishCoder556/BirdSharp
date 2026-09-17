@@ -29,6 +29,7 @@ STB_LANG_IR_RUN(ast->right);
 
 
 
+#define STB_LANG_IR(ast) STB_CONCAT(CUR_IR_PREFIX, _ast)(ir, ast)
 #define STB_LANG_IR_RHS(ast) STB_CONCAT(CUR_IR_PREFIX, _ast)(ir, STB_LANG_RHS(ast))
 #define STB_LANG_IR_LHS(ast) STB_CONCAT(CUR_IR_PREFIX, _ast)(ir, STB_LANG_LHS(ast))
 

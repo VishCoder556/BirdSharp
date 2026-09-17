@@ -75,7 +75,7 @@ void STB_CONCAT(CUR_CODEGEN_PREFIX, _add_text)(CUR_CODEGEN_NAME *gen, int offset
     char st[256]; \
     int len = vsnprintf(st, 256, str, args); \
     va_end(args); \
-    if (len < 0 || len >= sizeof(st)) { \
+    if (len < 0 || len >= (int)sizeof(st)) { \
         STB_LANG_CODEGEN_ERROR_MINOR(offset, file, "CodeGenError", "Too large of a buffer is being written at once"); \
         return; \
     } \

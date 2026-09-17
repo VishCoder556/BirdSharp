@@ -234,6 +234,7 @@ STB_CONCAT(CUR_TYPEINFO_NAME, _Scope) * STB_CONCAT(CUR_TYPEINFO_PREFIX, _symbol_
     if (query == NULL) {goto exit;} \
     for (int i=0; i<scope->children.datalen; i++){\
         STB_CONCAT(CUR_TYPEINFO_NAME, _Scope) *a = (STB_CONCAT(CUR_TYPEINFO_NAME, _Scope)*)scope->children.data[i]; \
+        (void)a; \
         STB_CONCAT(CUR_TYPEINFO_NAME, _Scope) *scope1 = ((STB_CONCAT(CUR_TYPEINFO_NAME, _Scope)*)scope->children.data[i]); \
         if (scope1->name != NULL){ \
             if (strcmp(scope1->name, query) == 0){ \
@@ -246,14 +247,14 @@ exit: \
 } \
 STB_CONCAT(CUR_TYPEINFO_NAME, _Symbol) STB_CONCAT(CUR_TYPEINFO_PREFIX, _symbol_find)(STB_CONCAT(CUR_TYPEINFO_NAME, _Scope) *scope, char *query){ \
     STB_CONCAT(CUR_TYPEINFO_NAME, _Scope) *sc = scope; \
-    STB_CONCAT(CUR_TYPEINFO_NAME, _Symbol) sym = (STB_CONCAT(CUR_TYPEINFO_NAME, _Symbol)){.typeinfo = -1}; \
+    STB_CONCAT(CUR_TYPEINFO_NAME, _Symbol) sym = (STB_CONCAT(CUR_TYPEINFO_NAME, _Symbol)){.typeinfo = {.ptrnum=-1}}; \
     while (sc != NULL){ \
         if (STB_CONCAT(CUR_TYPEINFO_PREFIX, _symbol_find_from_symbols)(sc->symbols, query, &sym)) { \
             return sym; \
         } \
         sc = (STB_CONCAT(CUR_TYPEINFO_NAME, _Scope)*)sc->parent; \
     } \
-    return (STB_CONCAT(CUR_TYPEINFO_NAME, _Symbol)){.typeinfo = -1}; \
+    return (STB_CONCAT(CUR_TYPEINFO_NAME, _Symbol)){.typeinfo = {.ptrnum=-1}}; \
 } \
 CUR_TYPEINFO_NAME *STB_CONCAT(CUR_TYPEINFO_PREFIX, _init)(CUR_PARSER_NAME *parser) { \
     CUR_TYPEINFO_NAME *checker = malloc(sizeof(*checker)); \

@@ -17,7 +17,12 @@ dymarray_##a dymarray_##a##_new(){ \
 void dymarray_##a##_add(dymarray_##a *array, a thing){ \
     if (array->datalen >= array->datacap){ \
         array->datacap += increment; \
-        array->data = realloc(array->data, sizeof(a) * array->datacap); \
+        void *_data = realloc(array->data, sizeof(a) * array->datacap); \
+        if (!_data) { \
+            fprintf(stderr, "Ran out of memory in dymarray\n"); \
+            exit(-1); \
+        } \
+        array->data = _data; \
     } \
     array->data[array->datalen++] = thing; \
 }

@@ -71,6 +71,8 @@ typedef struct { \
     STB_CONCAT3(dymarray_, CUR_TOKENIZER_NAME, _File) files; \
 }CUR_REGALLOC_NAME; \
 STB_CONCAT(CUR_REGALLOC_NAME, _Reg) STB_CONCAT(CUR_REGALLOC_PREFIX, _alloc_register)(CUR_REGALLOC_NAME *regalloc, int offset, int file){ \
+    (void)file; \
+    (void)offset; \
     STB_CONCAT3(dymarray_, CUR_REGALLOC_NAME, _Register) *dym = regalloc->regs; \
     for (int v=0; v<dym->datalen; v++){ \
         if (dym->data[v].available == 1){ \
@@ -101,7 +103,7 @@ STB_CONCAT3(dymarray_, CUR_REGALLOC_NAME, _Register) *STB_CONCAT(CUR_REGALLOC_PR
     return dym;\
 }\
 void STB_CONCAT(CUR_REGALLOC_PREFIX, _free_register)(STB_CONCAT(CUR_REGALLOC_NAME, _Reg) reg, STB_CONCAT3(dymarray_, CUR_REGALLOC_NAME, _Register) *regs){ \
-    if (reg != -1) { \
+    if ((int)reg != -1) { \
         regs->data[(int)reg].available = 1; \
     } \
 }; \
@@ -233,16 +235,16 @@ STB_LANG_REGALLOC_REGISTER_NAMES( \
 STB_CONCAT(CUR_REGALLOC_NAME, _Reg) reg; \
 if (instr == NULL){ \
     reg = STB_CONCAT(CUR_REGALLOC_PREFIX, _alloc_register)(regalloc, -1, -1); \
-    if (reg == -1){ \
+    if ((int)reg == -1){ \
         stb_lang_error_major_global("RegisterError", "Could not allocate a register"); \
     } \
 }else { \
     reg = STB_CONCAT(CUR_REGALLOC_PREFIX, _alloc_register)(regalloc, instr->offset, instr->file); \
-    if (reg == -1){ \
+    if ((int)reg == -1){ \
     } \
 }
 
-// STB_LANG_REGALLOC_ERROR_MINOR(regalloc->files, instr->offset, instr->file, "RegisterError", "Could not allocate a register"); \
+// STB_LANG_REGALLOC_ERROR_MINOR(regalloc->files, instr->offset, instr->file, "RegisterError", "Could not allocate a register");
 
 
 #define STB_LANG_REGISTER(r, size) STB_CONCAT(CUR_REGALLOC_PREFIX, _register_from_reg)(gen->files, instr->file, instr->offset, r, size)

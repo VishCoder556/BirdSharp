@@ -33,6 +33,7 @@ if (right != NULL) { \
 
 
 
+
 #define STB_LANG_ARM_BINARY(op) \
 STB_LANG_ARM_MOVE(8, instr->left, STB_LANG_REGISTER(instr->phys[0], 8)); \
 if (instr->phys[1] != -1){ \
