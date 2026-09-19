@@ -750,6 +750,10 @@ STB_LANG_NEW_TYPEINFO(
                 ast->typeinfo.ptrnum--;
             }else if (ast->typeinfo.type == AST_TYPE_ARRAY){
                 ast->typeinfo = *(Lang_TypeInfo_Typeinfo*)(ast->typeinfo.data.array.elem_type);
+                if (STB_LANG_LHS(ast)->type == AST_DEREF){
+                    STB_LANG_LHS(ast)->typeinfo = ast->typeinfo;
+                }else {
+                }
             }else if (STB_LANG_LHS(ast)->type == AST_ACCESS){
                 ast->typeinfo = STB_LANG_LHS(ast)->typeinfo;
             }else if (STB_LANG_LHS(ast)->type == AST_DEREF){
@@ -856,9 +860,15 @@ STB_LANG_NEW_TYPEINFO(
             Lang_TypeInfo_Typeinfo typinf = STB_LANG_OF_AST(ast->left, typeinfo);
             if (typinf.ptrnum == 0 && typinf.type != AST_TYPE_ARRAY){
                 STB_LANG_TYPEINFO_ERROR_MINOR(ast->offset, ast->file, "DerefError", "Could not dereference anything that's not a pointer or array");
+            }else if (typinf.type == AST_TYPE_ARRAY){
+                if (typinf.data.array.elem_type != NULL){
+                    ast->typeinfo = *(Lang_TypeInfo_Typeinfo*)(typinf.data.array.elem_type);
+                }
             }
-            typinf.ptrnum--;
-            ast->typeinfo = typinf;
+            if (typinf.ptrnum != 0){
+                typinf.ptrnum--;
+                ast->typeinfo = typinf;
+            }
         )
         STB_LANG_TYPEINFO_CASE(AST_INDEX,
             STB_LANG_EXPAND_LHS();
@@ -874,8 +884,11 @@ STB_LANG_NEW_TYPEINFO(
             };
         )
         STB_LANG_TYPEINFO_CASE(AST_ACCESS,
+            // printf("[%d\n", a->type == AST_ACCESS);
+
             STB_LANG_EXPAND_LHS();
             STB_LANG_TYPEINFO_ASSUME_TYPE(STB_LANG_LHS(ast)->typeinfo);
+
 
             // printf("{%s}\n", STB_LANG_LHS(ast)->typeinfo.data.struct1.name);
             STB_LANG_FIND_DATA(checker->root_scope, STB_LANG_LHS(ast)->typeinfo.data.struct1.name,
@@ -899,9 +912,16 @@ STB_LANG_NEW_TYPEINFO(
             STB_LANG_EXPAND_LHS();
         )
         STB_LANG_TYPEINFO_CASE(AST_IR_INSTRUCTION,
+            if (strcmp(ast->value, "call")){
+                STB_LANG_EXPAND_LHS();
+                STB_LANG_EXPAND_RHS();
+            }
         )
 
         STB_LANG_TYPEINFO_CASE(AST_IR_LIST,
+            STB_LANG_ITERATE_LINKED_LIST(ast->left, a_instr, Lang_Parser_AST,
+                STB_LANG_EXPAND(a_instr);
+            )
         )
     )
 )
@@ -986,10 +1006,100 @@ STB_LANG_ITERATE_LINKED_LIST(ast->left, _args, Lang_Parser_AST,
 
         STB_LANG_IR_CASE(AST_IR_INSTRUCTION,
             if (strcmp(ast->value, "mov") == 0){
+                if (STB_LANG_LHS(ast)->type == AST_ACCESS){
+                    Lang_TypeInfo_Symbol *symbol = STB_LANG_GET_SYMBOL(STB_LANG_LHS(ast)->typeinfo.data.struct1.symbol);
+                    Lang_Parser_AST *structdef = STB_LANG_GET_AST(symbol->data.struct1.structdef);
+                    int offset = 0;
+                    int found = 0;
+                    STB_LANG_ITERATE_LINKED_LIST(STB_LANG_LHS(structdef), field, Lang_Parser_AST,
+                        if (field->type == AST_VAR){
+                            if (strcmp(field->value, STB_LANG_LHS(ast)->value) == 0){
+                                ast->typeinfo = field->typeinfo;
+                                found = 1;
+                                break;
+                            }else {
+                                offset += STB_LANG_LOOKUP_SIZE(ir->root_scope, &field->typeinfo);
+                            }
+                        }
+                    )
+
+                    if (found == 0){
+                        STB_LANG_IR_ERROR_MINOR(ast->offset, ast->file, "StructError", "Could not find field \"%s\" in \"struct %s\"", STB_LANG_LHS(ast)->value, symbol->name);
+                    }
+                    STB_LANG_IR_NEW_TEMP(addr_reg);
+                    STB_LANG_IR_EMIT(IR_ADDR, STB_LANG_IR_OPERAND(IR_REG, addr_reg), STB_LANG_IR_LHS(STB_LANG_LHS(ast)), NULL);
+                    char str[32]; snprintf(str, 32, "%d", offset);
+                    STB_LANG_IR_EMIT(IR_ADD, STB_LANG_IR_OPERAND(IR_REG, addr_reg), STB_LANG_IR_OPERAND(IR_REG, addr_reg), STB_LANG_IR_OPERAND(IR_INT, strdup(str)));
+                    STB_LANG_IR_EMIT(IR_STORE, STB_LANG_IR_OPERAND(IR_REG, addr_reg), STB_LANG_IR_RHS(ast), NULL, .typeinfo=STB_LANG_LHS(ast)->typeinfo);
+                }
+            else if (STB_LANG_LHS(ast)->type == AST_DEREF) {
+                ast->typeinfo = STB_LANG_LHS(ast)->typeinfo;
+                if (ast->typeinfo.type == AST_TYPE_ARRAY){
+                    ast->typeinfo = *(Lang_TypeInfo_Typeinfo*)(ast->typeinfo.data.array.elem_type);
+                    if (STB_LANG_LHS(ast)->type == AST_DEREF){
+                        STB_LANG_LHS(ast)->typeinfo = ast->typeinfo;
+                    }else {
+                    }
+                }
+                STB_LANG_IR_NEW_TEMP(secure_addr_reg);
+                // printf("%d\n", STB_LANG_LOOKUP_SIZE(ir->root_scope, &ast->typeinfo));
+
+                STB_CONCAT(CUR_IR_NAME, _Operand) *addr = STB_LANG_IR_LHS(STB_LANG_LHS(ast));
+                STB_LANG_IR_EMIT(IR_ADDR, STB_LANG_IR_OPERAND(IR_REG, secure_addr_reg), addr, NULL);
+                
+                STB_CONCAT(CUR_IR_NAME, _Operand) *value = STB_LANG_IR_RHS(ast);
+                
+                STB_LANG_IR_EMIT(IR_STORE, STB_LANG_IR_OPERAND(IR_REG, secure_addr_reg), value, NULL, .typeinfo=ast->typeinfo);
+            }else if (STB_LANG_LHS(ast)->type == AST_INDEX){
                 STB_LANG_IR_NEW_TEMP(addr_reg);
-                STB_LANG_IR_EMIT(IR_ASSIGN, STB_LANG_IR_OPERAND(IR_REG, addr_reg), STB_LANG_IR_RHS(ast), NULL);
+                STB_LANG_IR_NEW_TEMP(offset_reg);
+
+                int size = STB_LANG_LOOKUP_SIZE(ir->root_scope, &STB_LANG_LHS(ast)->typeinfo);
+                char str[32]; snprintf(str, 32, "%d", size);
+                // a[0] = 5
+                STB_LANG_IR_EMIT(IR_MUL, STB_LANG_IR_OPERAND(IR_REG, offset_reg), STB_LANG_IR_RHS(STB_LANG_LHS(ast)), STB_LANG_IR_OPERAND(IR_INT, strdup(str)));
+                if (STB_LANG_LHS(STB_LANG_LHS(ast))->typeinfo.ptrnum == 0){
+                    STB_LANG_IR_EMIT(IR_ADDR, STB_LANG_IR_OPERAND(IR_REG, addr_reg), STB_LANG_IR_LHS(STB_LANG_LHS(ast)), NULL);
+                }else {
+                    STB_LANG_IR_EMIT(IR_ASSIGN, STB_LANG_IR_OPERAND(IR_REG, addr_reg), STB_LANG_IR_LHS(STB_LANG_LHS(ast)), NULL);
+                }
+                STB_LANG_IR_EMIT(IR_ADD, STB_LANG_IR_OPERAND(IR_REG, addr_reg), STB_LANG_IR_OPERAND(IR_REG, addr_reg), STB_LANG_IR_OPERAND(IR_REG, offset_reg));
+                STB_LANG_IR_EMIT(IR_STORE, STB_LANG_IR_OPERAND(IR_REG, addr_reg), STB_LANG_IR_RHS(ast), NULL, .typeinfo=STB_LANG_LHS(ast)->typeinfo);
+            }
+                else {
+                    STB_LANG_IR_EMIT(IR_ASSIGN, STB_LANG_IR_LHS(ast), STB_LANG_IR_RHS(ast), NULL);
+                }
             }else if (strcmp(ast->value, "call") == 0){
                 char *funcname = (char*)STB_LANG_RHS(ast);
+                Lang_Parser_AST *params[64]; int paramslen = 0;
+                STB_LANG_ITERATE_LINKED_LIST(ast->left, arg, Lang_Parser_AST,
+                    params[paramslen++] = arg;
+                )
+                int idx = -1;
+                int varidx = -1;
+                for (int i = 0; i < paramslen; i++) {
+                    if (params[i]->flags != STB_LANG_TYPEINFO_VARIADIC) {
+                        idx++;
+                    } else {
+                        varidx++;
+                    }
+                }
+
+
+                for (int i = paramslen - 1; i >= 0; i--) {
+                    Lang_Parser_AST *param = params[i];
+
+                    STB_CONCAT(CUR_IR_NAME, _Operand) *operand = STB_CONCAT(CUR_IR_PREFIX, _ast)(ir, param);
+                    if (param->flags != STB_LANG_TYPEINFO_VARIADIC) {
+                        char str[32];
+                        snprintf(str, 32, "a%d", idx--); 
+                        STB_LANG_IR_EMIT(IR_ASSIGN, STB_LANG_IR_OPERAND(IR_REG, strdup(str)), operand, NULL);
+                    } else {
+                        char str[32];
+                        snprintf(str, 32, ".arg%d", varidx--);
+                        STB_LANG_IR_EMIT(IR_ASSIGN, STB_LANG_IR_OPERAND(IR_REG, strdup(str)), operand, NULL);
+                    }
+                }
                 STB_LANG_IR_EMIT(IR_CALL, STB_LANG_IR_OPERAND(IR_VAR, funcname), NULL, NULL);
             }else if (strcmp(ast->value, "ret") == 0){
                 STB_CONCAT(CUR_IR_NAME, _Operand) *operand = STB_LANG_IR_LHS(ast);
@@ -1046,20 +1156,26 @@ STB_LANG_ITERATE_LINKED_LIST(ast->left, _args, Lang_Parser_AST,
             }else if (STB_LANG_LHS(ast)->type == AST_DEREF) {
                 STB_LANG_IR_NEW_TEMP(secure_addr_reg);
 
-                STB_CONCAT(CUR_IR_NAME, _Operand) *addr = STB_LANG_IR_LHS(STB_LANG_LHS(ast));
-                STB_LANG_IR_EMIT(IR_ASSIGN, STB_LANG_IR_OPERAND(IR_REG, secure_addr_reg), addr, NULL);
-                
-                STB_CONCAT(CUR_IR_NAME, _Operand) *value = STB_LANG_IR_RHS(ast);
-                
-                STB_LANG_IR_EMIT(IR_STORE, STB_LANG_IR_OPERAND(IR_REG, secure_addr_reg), value, NULL, .typeinfo=STB_LANG_LHS(ast)->typeinfo);
+                STB_LANG_IR_EMIT(IR_ADDR, STB_LANG_IR_OPERAND(IR_REG, secure_addr_reg), STB_LANG_IR_LHS(STB_LANG_LHS(ast)), NULL);
+                STB_LANG_IR_EMIT(IR_STORE, STB_LANG_IR_OPERAND(IR_REG, secure_addr_reg), STB_LANG_IR_RHS(ast), NULL, .typeinfo=ast->typeinfo);
+
+                // STB_CONCAT(CUR_IR_NAME, _Operand) *addr = STB_LANG_IR_LHS(STB_LANG_LHS(ast));
+                // STB_LANG_IR_EMIT(IR_ASSIGN, STB_LANG_IR_OPERAND(IR_REG, secure_addr_reg), addr, NULL);
+                // 
+                // STB_CONCAT(CUR_IR_NAME, _Operand) *value = STB_LANG_IR_RHS(ast);
+                // 
+                // STB_LANG_IR_EMIT(IR_STORE, STB_LANG_IR_OPERAND(IR_REG, secure_addr_reg), value, NULL, .typeinfo=STB_LANG_LHS(ast)->typeinfo);
             }else {
                 STB_LANG_IR_EMIT(IR_STORE, STB_LANG_IR_LHS(ast), STB_LANG_IR_RHS(ast), NULL, .typeinfo=STB_LANG_LHS(ast)->typeinfo);
             }
         )
 
         STB_LANG_IR_CASE(AST_ACCESS,
-            STB_LANG_IR_LHS(ast);
             Lang_TypeInfo_Symbol *symbol = STB_LANG_GET_SYMBOL(ast->typeinfo.data.struct1.symbol);
+            if (symbol == NULL){
+                fprintf(stderr, "Symbol error thing\n");
+                exit(0);
+            }
             Lang_Parser_AST *structdef = STB_LANG_GET_AST(symbol->data.struct1.structdef);
             int offset = 0;
             int found = 0;
@@ -1256,9 +1372,15 @@ STB_LANG_ITERATE_LINKED_LIST(ast->left, _args, Lang_Parser_AST,
             return STB_LANG_IR_AS_TEMP(IR_REG, dest);
         )
         STB_LANG_IR_CASE(AST_DEREF,
+            // fprintf(stderr, "%d\n", STB_LANG_LOOKUP_SIZE(ir->root_scope, &ast->typeinfo));
+
             STB_LANG_IR_NEW_TEMP(dest);
             STB_CONCAT(CUR_IR_NAME, _Operand) *operand = STB_LANG_IR_LHS(ast);
-            STB_LANG_IR_EMIT(IR_LOAD, STB_LANG_IR_AS_TEMP(IR_REG, dest), operand, NULL);
+            if (operand->type == IR_VAR){
+                STB_LANG_IR_EMIT(IR_ASSIGN, STB_LANG_IR_AS_TEMP(IR_REG, dest), operand, NULL, .typeinfo=ast->typeinfo);
+            }else {
+                STB_LANG_IR_EMIT(IR_LOAD, STB_LANG_IR_AS_TEMP(IR_REG, dest), operand, NULL, .typeinfo=ast->typeinfo);
+            }
             return STB_LANG_IR_AS_TEMP(IR_REG, dest);
         )
         STB_LANG_IR_CASE(AST_INDEX,
@@ -1441,6 +1563,9 @@ STB_LANG_NEW_DRIVER(
     //     obj_path, exec_path
     // );
     // ^ for legacy x86_64
+
+
+    // STB_LANG_DRIVER_RUN_SCRIPT("cat %s", asm_path);
     STB_LANG_DRIVER_RUN_SCRIPT("rm %s", asm_path);
 );
 
@@ -1471,9 +1596,6 @@ int main(int argc, char **argv){
     Lang_Parser *parser = lang_parser_init(processor);
     while (lang_parser_parse_body(parser) == 0){
     }
-
-
-
     Lang_TypeInfo *checker = lang_typeinfo_init(parser);
     while (lang_typeinfo_check(checker) == 0){
     }
@@ -1483,7 +1605,16 @@ int main(int argc, char **argv){
     while (lang_ir_translate(ir) == 0){
     }
 
+    // STB_LANG_ITERATE_LINKED_LIST(GetLinkedListHead((*parser), Lang_Parser_AST), field, Lang_Parser_AST,
+    //     fprintf(stderr, "Hello World, %d\n", field->type);
+    // )
+
+
     Lang_RegAlloc *regalloc = lang_regalloc_init(ir);
+
+    // for (int i=0; i<regalloc->instrs.datalen; i++){
+    //     printf("%d, %p, %p, %p\n", ir->instrs.data[i].type, ir->instrs.data[i].dest, ir->instrs.data[i].left, ir->instrs.data[i].right);
+    // };
     lang_regalloc_backtrace(regalloc);
     while (lang_regalloc_alloc(regalloc) == 0){
     }

@@ -1,16 +1,8 @@
 #!include "examples/include/std.lang"
 
-
-
-void test(){
-    printf("Hi Guys\n")
-}
-
-
-
 int main(){
-    #!ir.inline {
-        call test()
-        ret 5
-    }
+#!ir.inline {
+    call printf("Hello World\n")
+    ret 3
+}
 }

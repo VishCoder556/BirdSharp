@@ -144,7 +144,7 @@ STB_LANG_NEW_CODEGEN(
             }
         )
         STB_LANG_CODEGEN_2CASES(IR_ASSIGN, IR_DECL,
-            // TODO: merge this entirely with STB_LANG_ARM_MOVE
+            STB_LANG_EMIT_CODE("; assign_start\n");
             ;if (instr->dest->type == IR_VAR){
                 int size = STB_CONCAT(CUR_CODEGEN_PREFIX, _get_size_from_var)(gen, instr->dest->value);
                 int offset = STB_CONCAT(CUR_CODEGEN_PREFIX, _get_offset_from_var)(gen, instr->dest->value);
@@ -170,6 +170,7 @@ STB_LANG_NEW_CODEGEN(
                     STB_LANG_EMIT_CODE("\tstr %s, [sp, #%d]\n", STB_LANG_REGISTER(instr->phys[0], 8), n*8);
                 }
             };
+            STB_LANG_EMIT_CODE("; assign_end\n");
         )
         STB_LANG_CODEGEN_CASE(IR_PUSH,
             STB_LANG_ARM_MOVE(8, instr->left, STB_LANG_REGISTER(instr->phys[0], 8));

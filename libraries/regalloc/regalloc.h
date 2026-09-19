@@ -185,7 +185,7 @@ char STB_CONCAT(CUR_REGALLOC_PREFIX, _back)(CUR_REGALLOC_NAME *regalloc){ \
     return 0; \
 }; \
 char STB_CONCAT(CUR_REGALLOC_PREFIX, _backtrace)(CUR_REGALLOC_NAME *regalloc){ \
-    regalloc->cursor = regalloc->instrs.datalen; \
+    regalloc->cursor = regalloc->instrs.datalen - 1; \
     while (STB_CONCAT(CUR_REGALLOC_PREFIX, _back)(regalloc) == 0){ \
         ; \
     } \

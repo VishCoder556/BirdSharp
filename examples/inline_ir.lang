@@ -1,0 +1,13 @@
+#!include "examples/include/std.lang"
+
+int temp(){
+    return 25
+}
+
+int main(){
+    int a = 5
+    #!ir.inline {
+        mov a, temp()
+        ret a
+    }
+}
