@@ -4,8 +4,8 @@ void printf(string fmt, ...)
 
 int main(int argc, int argv){
     string a = "Trim: Hello World"
-    ptr<int> str = cast(ptr<int>, a)
-    deref(str + cast(ptr<int>, 11)) = 0
-    printf("\"%s\"\n", str + cast(ptr<int>, 6))
+    ptr<char> str = cast(ptr<char>, a)
+    deref(str + cast(ptr<char>, 11)) = cast(char, 0)
+    printf("\"%s\"\n", str + cast(ptr<char>, 6))
     return 0
 }

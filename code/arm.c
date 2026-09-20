@@ -8,10 +8,22 @@ if (right != NULL) { \
         STB_LANG_EMIT_CODE("\tmov %s, #%s\n", leftr, right->value); \
     }else if(right->type == IR_VAR){ \
         int newoffset = STB_CONCAT(CUR_CODEGEN_PREFIX, _get_offset_from_var)(gen, right->value); \
-        if (newoffset == 0){ \
-            STB_LANG_EMIT_CODE("\tldr %s, [sp]\n", leftr); \
+        if (right->extr == 0){ \
+            if (newoffset == 0){ \
+                STB_LANG_EMIT_CODE("\tldr %s, [sp]\n", leftr); \
+            }else { \
+                STB_LANG_EMIT_CODE("\tldr %s, [sp, #%d]\n", leftr, newoffset); \
+            } \
         }else { \
-            STB_LANG_EMIT_CODE("\tldr %s, [sp, #%d]\n", leftr, newoffset); \
+            if (newoffset == 0){ \
+                STB_LANG_EMIT_CODE("\tmov %s, sp\n", leftr); \
+            }else { \
+                if (leftr[0] == 'w'){ \
+                    STB_LANG_EMIT_CODE("\tadd %s, wsp, #%d\n", leftr, newoffset); \
+                }else {; \
+                    STB_LANG_EMIT_CODE("\tadd %s, sp, #%d\n", leftr, newoffset); \
+                } \
+            } \
         } \
     }else if (right->type == IR_REG){ \
         if (right->value[0] == 'a'){ \
@@ -35,12 +47,12 @@ if (right != NULL) { \
 
 
 #define STB_LANG_ARM_BINARY(op) \
-STB_LANG_ARM_MOVE(8, instr->left, STB_LANG_REGISTER(instr->phys[0], 8)); \
+STB_LANG_ARM_MOVE(8, instr->left, STB_LANG_REGISTER(instr->dest->phys, 8)); \
 if (instr->phys[1] != -1){ \
     STB_LANG_ARM_MOVE(8, instr->right, STB_LANG_REGISTER(instr->phys[1], 8)); \
-    STB_LANG_EMIT_CODE("\t%s %s, %s, %s\n", op, STB_LANG_REGISTER(instr->dest->phys, 8), STB_LANG_REGISTER(instr->phys[0], 8), STB_LANG_REGISTER(instr->phys[1], 8)); \
+    STB_LANG_EMIT_CODE("\t%s %s, %s, %s\n", op, STB_LANG_REGISTER(instr->dest->phys, 8), STB_LANG_REGISTER(instr->dest->phys, 8), STB_LANG_REGISTER(instr->phys[1], 8)); \
 }else { \
-    STB_LANG_EMIT_CODE("\t%s %s, %s, #%s\n", op, STB_LANG_REGISTER(instr->dest->phys, 8), STB_LANG_REGISTER(instr->phys[0], 8), instr->right->value); \
+    STB_LANG_EMIT_CODE("\t%s %s, %s, #%s\n", op, STB_LANG_REGISTER(instr->dest->phys, 8), STB_LANG_REGISTER(instr->dest->phys, 8), instr->right->value); \
 }
 
 
@@ -79,12 +91,13 @@ STB_LANG_NEW_CODEGEN(
             // STB_LANG_FUNCTION_ALLOCATE(gen, 8);
             int offset = 16;
             STB_LANG_GO_TO_FUNC(instr->dest->value);
-            STB_LANG_ITERATE(STB_LANG_CURRENT_SCOPE()->symbols, Lang_TypeInfo_Symbol,
-                if (iter.kind == STB_LANG_SYMBOL_VARIABLE){
-                    offset = iter.data.variable.offset;
-                };
-            );
-            STB_LANG_EMIT_CODE("\tsub sp, sp, #%d\n", (offset + 15 + 16) & ~15);
+            // STB_LANG_ITERATE(STB_LANG_CURRENT_SCOPE()->symbols, Lang_TypeInfo_Symbol,
+            //     if (iter.kind == STB_LANG_SYMBOL_VARIABLE){
+            //         offset = iter.data.variable.offset;
+            //     };
+            // );
+            (void)offset;
+            STB_LANG_EMIT_CODE("\tsub sp, sp, #%d\n", 4080);
         )
         STB_LANG_CODEGEN_CASE(IR_EXTERN,
         )
@@ -144,10 +157,10 @@ STB_LANG_NEW_CODEGEN(
             }
         )
         STB_LANG_CODEGEN_2CASES(IR_ASSIGN, IR_DECL,
-            STB_LANG_EMIT_CODE("; assign_start\n");
             ;if (instr->dest->type == IR_VAR){
                 int size = STB_CONCAT(CUR_CODEGEN_PREFIX, _get_size_from_var)(gen, instr->dest->value);
                 int offset = STB_CONCAT(CUR_CODEGEN_PREFIX, _get_offset_from_var)(gen, instr->dest->value);
+                ;
                 if (instr->left != NULL){
                     STB_LANG_ARM_MOVE(size, instr->left, STB_LANG_REGISTER(instr->phys[0], size))
                 }
@@ -156,7 +169,10 @@ STB_LANG_NEW_CODEGEN(
                 }else {
                     STB_LANG_EMIT_CODE("\tstr %s, [sp, #%d]\n", STB_LANG_REGISTER(instr->phys[0], size), offset);
                 }
+
             }else if (instr->dest->type == IR_REG){
+                // printf("A, %s\n", instr->dest->value);
+                // STB_LANG_EMIT_CODE("\tan, %s\n", instr->dest->value);
                 char string[32];
                 if (instr->dest->value[0] == 'a'){
                     snprintf(string, 32, "x%d", atoi(instr->dest->value + 1));
@@ -166,11 +182,13 @@ STB_LANG_NEW_CODEGEN(
                     STB_LANG_ARM_MOVE(8, instr->left, string)
                 }else if (instr->dest->value[0] == '.'){
                     int n = atoi(instr->dest->value + 4);
+                    // STB_LANG_EMIT_CODE("\tstart\n");
                     STB_LANG_ARM_MOVE(8, instr->left, STB_LANG_REGISTER(instr->phys[0], 8))
                     STB_LANG_EMIT_CODE("\tstr %s, [sp, #%d]\n", STB_LANG_REGISTER(instr->phys[0], 8), n*8);
                 }
+                // STB_LANG_EMIT_CODE("\tana\n");
             };
-            STB_LANG_EMIT_CODE("; assign_end\n");
+            // STB_LANG_EMIT_CODE("\tb\n");
         )
         STB_LANG_CODEGEN_CASE(IR_PUSH,
             STB_LANG_ARM_MOVE(8, instr->left, STB_LANG_REGISTER(instr->phys[0], 8));

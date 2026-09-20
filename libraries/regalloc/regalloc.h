@@ -89,6 +89,7 @@ char *STB_CONCAT(CUR_REGALLOC_PREFIX, _register_from_reg_inner)(STB_CONCAT(CUR_R
 char *STB_CONCAT(CUR_REGALLOC_PREFIX, _register_from_reg)(STB_CONCAT3(dymarray_, CUR_TOKENIZER_NAME, _File) files, int fl, int offset, STB_CONCAT(CUR_REGALLOC_NAME, _Reg) r, int size){ \
     char *str = STB_CONCAT(CUR_REGALLOC_PREFIX, _register_from_reg_inner)(r, size); \
     if (str == NULL){ \
+        return STB_CONCAT(CUR_REGALLOC_PREFIX, _register_from_reg_inner)(r, 8); \
         STB_LANG_REGALLOC_ERROR_MINOR(files, offset, fl, "RegisterError", "Invalid register or size accessed (reg=%d, size=%d)", r, size); \
         return NULL; \
     } \

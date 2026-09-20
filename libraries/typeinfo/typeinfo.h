@@ -327,8 +327,7 @@ STB_LANG_EXPAND_LIST(ast->right); \
 }while(0);
 
 #define STB_LANG_TYPEINFO_ASSUME_TYPE(typ) if (ast->typeinfo.type == -1) { \
-    ast->typeinfo.type = typ.type; \
-    ast->typeinfo.ptrnum = typ.ptrnum; \
+    memcpy(&ast->typeinfo, &typ, sizeof(ast->typeinfo)); \
 }
 
 

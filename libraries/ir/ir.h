@@ -18,7 +18,7 @@ STB_CONCAT(STB_CONCAT3(dymarray_, CUR_IR_NAME, _Instr), _add)(&ir->instrs, (STB_
 #define STB_LANG_IR_RUN(place) do {\
 STB_CONCAT(CUR_PARSER_NAME, _AST) *_block = (STB_CONCAT(CUR_PARSER_NAME, _AST)*)place; \
 while (_block != NULL){ \
-    STB_CONCAT(CUR_IR_PREFIX, _ast)(ir, _block); \
+    STB_CONCAT(CUR_IR_PREFIX, _ast)(ir, _block, 0); \
     _block = (STB_CONCAT(CUR_PARSER_NAME, _AST)*)_block->next; \
 }}while(0);
 
@@ -29,9 +29,32 @@ STB_LANG_IR_RUN(ast->right);
 
 
 
-#define STB_LANG_IR(ast) STB_CONCAT(CUR_IR_PREFIX, _ast)(ir, ast)
-#define STB_LANG_IR_RHS(ast) STB_CONCAT(CUR_IR_PREFIX, _ast)(ir, STB_LANG_RHS(ast))
-#define STB_LANG_IR_LHS(ast) STB_CONCAT(CUR_IR_PREFIX, _ast)(ir, STB_LANG_LHS(ast))
+#define STB_LANG_IR(ast) STB_CONCAT(CUR_IR_PREFIX, _ast)(ir, ast, 0)
+#define STB_LANG_IR_RHS(ast) STB_CONCAT(CUR_IR_PREFIX, _ast)(ir, STB_LANG_RHS(ast), 0)
+#define STB_LANG_IR_LHS(ast) STB_CONCAT(CUR_IR_PREFIX, _ast)(ir, STB_LANG_LHS(ast), 0)
+
+#define STB_LANG_IR_EXTRA(ast, n) ({ \
+    STB_CONCAT(CUR_IR_NAME, _Operand) *op = STB_CONCAT(CUR_IR_PREFIX, _ast)(ir, ast, n); \
+    if (op != NULL) { \
+        op->extr = n; \
+    } \
+    op; \
+})
+#define STB_LANG_IR_RHS_EXTRA(ast, n) ({ \
+    STB_CONCAT(CUR_IR_NAME, _Operand) *op = STB_CONCAT(CUR_IR_PREFIX, _ast)(ir, STB_LANG_RHS(ast), n); \
+    if (op != NULL) { \
+        op->extr = n; \
+    } \
+    op; \
+})
+
+#define STB_LANG_IR_LHS_EXTRA(ast, n) ({ \
+    STB_CONCAT(CUR_IR_NAME, _Operand) *op = STB_CONCAT(CUR_IR_PREFIX, _ast)(ir, STB_LANG_LHS(ast), n); \
+    if (op != NULL) { \
+        op->extr = n; \
+    } \
+    op; \
+})
 
 
 #define STB_LANG_IR_PARAMS(assign, pop, reg, var) do {\
@@ -46,6 +69,16 @@ STB_LANG_IR_RUN(ast->right);
     op->value = val; \
     op->phys = -1; \
     op->isLast = -1; \
+    op->extr = 0; \
+    op; \
+})
+#define STB_LANG_IR_OPERAND_EXTRA(typ, val, ...) ({ \
+    STB_CONCAT(CUR_IR_NAME, _Operand) *op = malloc(sizeof(*op)); \
+    op->type = typ; \
+    op->value = val; \
+    op->extr = __VA_ARGS__; \
+    op->phys = -1; \
+    op->isLast = -1; \
     op; \
 })
 
@@ -56,7 +89,7 @@ STB_LANG_IR_RUN(ast->right);
 #define STB_LANG_IR_NEW_LABEL(label) char *label = STB_CONCAT(CUR_IR_PREFIX, _make_temp_label_name)(ir);
 #define STB_LANG_IR_LABEL(var, label) STB_LANG_IR_OPERAND(var, label)
 
-#define STB_LANG_IR_GET_OPERAND(ast) STB_CONCAT(CUR_IR_PREFIX, _ast)(ir, (STB_CONCAT(CUR_PARSER_NAME, _AST)*)ast)
+#define STB_LANG_IR_GET_OPERAND(ast) STB_CONCAT(CUR_IR_PREFIX, _ast)(ir, (STB_CONCAT(CUR_PARSER_NAME, _AST)*)ast, 0)
 
 
 
@@ -74,6 +107,7 @@ typedef struct { \
     char *value; \
     int phys; \
     int isLast; \
+    int extr; \
 }STB_CONCAT(CUR_IR_NAME, _Operand); \
 typedef enum{types}STB_CONCAT(CUR_IR_NAME, _InstrType); \
 typedef struct { \
@@ -130,7 +164,8 @@ long STB_CONCAT(CUR_IR_PREFIX, _symbol_new)(CUR_IR_NAME *ir, char *data, int len
     STB_CONCAT(STB_CONCAT3(dymarray_, CUR_IR_NAME, _Symbol), _add)(&ir->symbols, symbol); \
     return ir->symbols.datalen-1; \
 }; \
-STB_CONCAT(CUR_IR_NAME, _Operand) *STB_CONCAT(CUR_IR_PREFIX, _ast)(CUR_IR_NAME *ir, STB_CONCAT(CUR_PARSER_NAME, _AST) *ast){ \
+STB_CONCAT(CUR_IR_NAME, _Operand) *STB_CONCAT(CUR_IR_PREFIX, _ast)(CUR_IR_NAME *ir, STB_CONCAT(CUR_PARSER_NAME, _AST) *ast, int extr){ \
+    (void)extr; \
     int offset = ast->offset; \
     int file = ast->file; \
     if (0){}cases else { \
@@ -141,7 +176,7 @@ STB_CONCAT(CUR_IR_NAME, _Operand) *STB_CONCAT(CUR_IR_PREFIX, _ast)(CUR_IR_NAME *
 char STB_CONCAT(CUR_IR_PREFIX, _translate)(CUR_IR_NAME *ir){ \
     if (ir->tail == NULL) return -1; \
  \
-    STB_CONCAT(CUR_IR_PREFIX, _ast)(ir, ir->tail); \
+    STB_CONCAT(CUR_IR_PREFIX, _ast)(ir, ir->tail, 0); \
  \
     ir->tail = (STB_CONCAT(CUR_PARSER_NAME, _AST)*)ir->tail->next; \
     return 0; \
