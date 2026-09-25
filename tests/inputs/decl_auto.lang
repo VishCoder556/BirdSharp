@@ -1,10 +1,10 @@
 #!include "examples/include/std.lang"
 #!scope.flat
 
-#!declaration.var.auto
+#!declaration.var.infer
 a = 5
 // ^ no need to include type: in auto declare mode
-#!declaration.var.manual
+#!declaration.var.explicit
 
 int b = 10
 // ^ need to include type `int`: in manual mode

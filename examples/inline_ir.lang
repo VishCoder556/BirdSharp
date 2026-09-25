@@ -8,6 +8,8 @@ int main(){
     int a = 5
     #!ir.inline {
         mov a, temp()
-        call printf("%d\n" a)
+        mov .t0, "%d\n"
+        mov .arg0, a
+        call printf(.t0, .arg0)
     }
 }

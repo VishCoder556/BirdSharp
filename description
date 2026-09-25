@@ -1,4 +1,4 @@
-Very simple compiled programming language
+A powerful compiled programming language
 
 Name - Undecided
 
@@ -7,8 +7,8 @@ GOALS:
         - STB-style?
     - Register optimization pass?
         - My previous compiled languages didn't really have this
-    - NO chance of memory leaks
-        - I usually don't check every scenario because I'm more interested in the code, but no matter how long this takes, this programming language needs to be memory-safe.
+    - NO chance of memory leaks in the compiler
+        - I usually don't check every scenario because I'm more interested in the code, but no matter how long this takes, this programming language compiler needs to be memory-safe.
             - UPDATE: This current version certainly compromises memory-wise, there are a bunch of memory leak spots, but I'll make it work and then make it work safely
 
 Maybe README.md format coming up soon?
