@@ -1,4 +1,4 @@
-BirdSharp 2.0, a powerful compiled language
+BirdSharp, a powerful compiled language
 
 GOALS:
     - Parser and tokenizer libraries
@@ -34,4 +34,4 @@ HOW IT WORKS (more will be added as I develop this language):
         - Time for the real magic
         - The assembly from the codegen phase is assembled, and then linked. All of the excess files are cleaned, and the output is an executable that can be ran!
 
-Renamed to BirdSharp 2!
+Renamed to BirdSharp!
