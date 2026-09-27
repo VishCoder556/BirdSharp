@@ -141,18 +141,18 @@ STB_CONCAT(CUR_REGALLOC_NAME, _VirtualRegister) STB_CONCAT(CUR_REGALLOC_PREFIX, 
     STB_CONCAT(STB_CONCAT3(dymarray_, CUR_REGALLOC_NAME, _VirtualRegister), _add)(regalloc->virtual_regs, vreg); \
     return vreg; \
 }; \
-CUR_REGALLOC_NAME *STB_CONCAT(CUR_REGALLOC_PREFIX, _init)(CUR_IR_NAME *ir){ \
+CUR_REGALLOC_NAME *STB_CONCAT(CUR_REGALLOC_PREFIX, _init)(CUR_OPTIMIZER_NAME *opt){ \
     CUR_REGALLOC_NAME *regalloc = malloc(sizeof(*regalloc)); \
     regalloc->virtual_regs = malloc(sizeof(*regalloc->virtual_regs)); \
     *regalloc->virtual_regs = STB_CONCAT(STB_CONCAT3(dymarray_, CUR_REGALLOC_NAME, _VirtualRegister), _new)(); \
-    regalloc->root_scope = ir->root_scope; \
-    regalloc->file = ir->file; \
-    regalloc->files = ir->files; \
-    regalloc->instrs = ir->instrs; \
+    regalloc->root_scope = opt->root_scope; \
+    regalloc->file = opt->file; \
+    regalloc->files = opt->files; \
+    regalloc->instrs = opt->instrs; \
     regalloc->regs = STB_CONCAT(CUR_REGALLOC_PREFIX, _regs_init)(); \
     regalloc->backtrack = STB_CONCAT(STB_CONCAT3(dymarray_, CUR_REGALLOC_NAME, _Register_BackTrack), _new)(); \
     regalloc->cursor = 0; \
-    regalloc->symbols = ir->symbols; \
+    regalloc->symbols = opt->symbols; \
     return regalloc; \
 } \
 char STB_CONCAT(CUR_REGALLOC_PREFIX, _ir)(CUR_REGALLOC_NAME *regalloc, STB_CONCAT(CUR_IR_NAME, _Instr) *instr){ \

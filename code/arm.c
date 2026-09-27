@@ -299,5 +299,7 @@ STB_LANG_NEW_CODEGEN(
         STB_LANG_CODEGEN_CASE(IR_NEQ,
             STB_LANG_ARM_COMPARISON("ne")
         )
+        STB_LANG_CODEGEN_CASE(IR_NOP,
+        )
     )
 );

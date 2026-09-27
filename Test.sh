@@ -21,7 +21,7 @@ for file in tests/inputs/*; do
     else
         echo $RED"[ERROR] Unexpected output"$CLEAR
         echo "\tExpected: "$expected
-        echo "\tRecieved: "$output
+        # echo "\tRecieved: "$output
     fi
     rm res/main.out
 done

@@ -329,12 +329,7 @@ int get_file_len(ptr<int> file){
 
 int main(int argc, ptr<string> argv){
     int i = 1
-    string input_file = cast(string, 0)
-    while (i < argc){
-        input_file = argv[i]
-        i = i + 1
-    }
-    input_file = "tests/inputs/tokenizer.lang" // Tokenize itself
+    string input_file = cast(string, "examples/argc.lang")
     struct Tokenizer tokenizer
     tokenizer.file_name = input_file
     ptr<int> file = fopen(input_file, "r")
