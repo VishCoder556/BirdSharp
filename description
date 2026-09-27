@@ -11,13 +11,29 @@ GOALS:
         - I usually don't check every scenario because I'm more interested in the code, but no matter how long this takes, this programming language compiler needs to be memory-safe.
             - UPDATE: This current version certainly compromises memory-wise, there are a bunch of memory leak spots, but I'll make it work and then make it work safely
 
-Maybe README.md format coming up soon?
-    I'm still pretty new to READMEs, might take some time
-
 HOW IT WORKS (more will be added as I develop this language):
-    - Tokenizer library
+    - Tokenizer Library
         - Maybe add macros for creating the tokenizer?
         - There might be some drawbacks to using macros in approach, but I want to support as diverse of a range for programming languages as possible
-    - Parser / AST library
+    - Parser / AST Library
         - Might be the hardest one: there are a lot of programming styles for ASTS
             - I'm probably going to compromise and make it work on some minimal styles -- I might add more later, but for now, that could do
+    - Typechecking Library
+        - Continuing the style from Parser/AST where certain helper functions are given
+        - It's a typechecker, so it's rather simple
+    - IR Generator
+        - One of the most important phases in a compiler is the conversion into an Intermediate Representation that works well. There are big risks if I don't do this part well enough.
+        - Inline IR too to make things easier!
+    - Optimization Library:
+        - This one was added way after the others because I didn't need optimization before, but in the pipeline it lies right between IR-gen and the register allocation phase
+    - Register Allocation Library:
+        - It might be a little weird that this is before the main assembly-gen phase, because it is platform-specific. It's just easier to set stuff up this way.
+        - Turns an infinite amount of temporaries into a fixed amount of registers for assembly
+    - Code Generation Library
+        - Converts all of the IR that now has registers built into it into a final assembly format
+            - The main one so far is ARM, maybe we can develop more backends over time?
+    - Driver Library
+        - Time for the real magic
+        - The assembly from the codegen phase is assembled, and then linked. All of the excess files are cleaned, and the output is an executable that can be ran!
+
+TODO: Maybe merge this with BirdSharp? It seems to have a lot of inspiration from it, and I genuinely view it as a successor
