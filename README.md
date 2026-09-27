@@ -1,5 +1,9 @@
-# CompiledLanguage
+# Birdsharp
+The newest version of BirdSharp, a complete rewrite with a new vision!
 A simple compiled language, with special libraries that make creating programming languages easier.
+
+
+* Renamed from NewCompiledLanguage on September 27th *
 
 ## Libraries
 - [Dynamic Arrays](./libraries/dymarray) - A simple library that makes dynamic arrays easier
