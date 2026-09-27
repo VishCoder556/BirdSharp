@@ -9,6 +9,7 @@ A simple compiled language, with special libraries that make creating programmin
 - [Parser Library](./libraries/parser) - A bunch of macro hacks including parsers and ASTs that let you decide a language's grammar (like GNU BISON, but it's in C)
 - [TypeInfo Library](./libraries/typeinfo) - A typechecker library that checks the types of ASTs
 - [IR Library](./libraries/ir) - A customizable intermediate representation based on TAC
+- [Optimization Library](./libraries/optimizer) - A library that helps you optimize the IR
 - [Register Allocation Library](./libraries/regalloc) - A library that allocates registers for a specific backend
 - [CodeGen Library](./libraries/codegen) - A library that compiles the IR into code
 - [Driver Library](./libraries/driver) - A library that can write code to files and run scripts
