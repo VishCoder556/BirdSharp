@@ -16,13 +16,15 @@ dymarray_##a dymarray_##a##_new(){ \
 } \
 void dymarray_##a##_add(dymarray_##a *array, a thing){ \
     if (array->datalen >= array->datacap){ \
-        array->datacap += increment; \
-        void *_data = realloc(array->data, sizeof(a) * array->datacap); \
+        int _inc = (increment > 0) ? (increment) : 4; \
+        int _next_cap = (array->datacap > 0) ? array->datacap + _inc : _inc; \
+        void *_data = realloc(array->data, sizeof(a) * (size_t)_next_cap); \
         if (!_data) { \
             fprintf(stderr, "Ran out of memory in dymarray\n"); \
             exit(-1); \
         } \
         array->data = _data; \
+        array->datacap = _next_cap; \
     } \
     array->data[array->datalen++] = thing; \
 }

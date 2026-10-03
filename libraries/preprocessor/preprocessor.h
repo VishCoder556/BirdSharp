@@ -51,15 +51,19 @@ char STB_CONCAT(CUR_PREPROCESSOR_PREFIX, _token)(CUR_PREPROCESSOR_NAME *processo
 };
 
 #define STB_LANG_PROCESSOR_TRIM(start, end) \
-memmove(&processor->tokens.data[start], &processor->tokens.data[end], (processor->tokens.datalen-end) * sizeof(STB_CONCAT(CUR_TOKENIZER_NAME, _Token))); \
-processor->tokens.datalen -= end - start;
+if ((end) < processor->tokens.datalen) { \
+    memmove(&processor->tokens.data[start], &processor->tokens.data[end], (processor->tokens.datalen - (end)) * sizeof(STB_CONCAT(CUR_TOKENIZER_NAME, _Token))); \
+} \
+processor->tokens.datalen -= ((end) - (start));
 
 #define STB_LANG_PROCESSOR_INSERT(cursor, prpnew) \
 if (processor->tokens.datalen + prpnew->tokens.datalen > processor->tokens.datacap){ \
-    processor->tokens.data = realloc(processor->tokens.data, (processor->tokens.datalen + prpnew->tokens.datalen) * sizeof(STB_CONCAT(CUR_TOKENIZER_NAME, _Token))); \
+    int _newcap = processor->tokens.datalen + prpnew->tokens.datalen; \
+    processor->tokens.data = realloc(processor->tokens.data, _newcap * sizeof(STB_CONCAT(CUR_TOKENIZER_NAME, _Token))); \
+    processor->tokens.datacap = _newcap; \
 } \
 STB_CONCAT(STB_CONCAT3(dymarray_, CUR_TOKENIZER_NAME, _File), _add)(&processor->files, prpnew->file); \
-memmove(&processor->tokens.data[cursor + prpnew->tokens.datalen], &processor->tokens.data[cursor], (processor->tokens.datalen - cursor) * sizeof(STB_CONCAT(CUR_TOKENIZER_NAME, _Token))); \
+memmove(&processor->tokens.data[(cursor) + prpnew->tokens.datalen], &processor->tokens.data[cursor], (processor->tokens.datalen - (cursor)) * sizeof(STB_CONCAT(CUR_TOKENIZER_NAME, _Token))); \
 memcpy(&processor->tokens.data[cursor], prpnew->tokens.data, (prpnew->tokens.datalen) * sizeof(STB_CONCAT(CUR_TOKENIZER_NAME, _Token))); \
 processor->tokens.datalen += prpnew->tokens.datalen;
 

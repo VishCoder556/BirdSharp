@@ -177,8 +177,8 @@ CUR_PARSER_NAME *STB_CONCAT(CUR_PARSER_PREFIX, _init)(CUR_PREPROCESSOR_NAME *pro
     return parser; \
 } \
 char STB_CONCAT(CUR_PARSER_PREFIX, _advance)(CUR_PARSER_NAME *parser) { \
-    if (parser->cursor >= parser->tokens.datalen){ \
-        return -1; \
+    if (parser->cursor >= parser->tokens.datalen - 1){ \
+        return 0; \
     } \
     parser->cursor++; \
     return 0;\

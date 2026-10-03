@@ -158,6 +158,8 @@ CUR_IR_NAME *STB_CONCAT(CUR_IR_PREFIX, _init)(CUR_TYPEINFO_NAME *checker){ \
     ir->file = checker->file; \
     ir->temp_number = 0; \
     ir->files = checker->files; \
+    ir->label_count = 0; \
+    ir->temp_number = 0; \
     return ir; \
 } \
 long STB_CONCAT(CUR_IR_PREFIX, _symbol_new)(CUR_IR_NAME *ir, char *data, int length){ \

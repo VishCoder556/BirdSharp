@@ -12,7 +12,7 @@
 #define STB_LANG_OPTIMIZER_OPERANDS(...) __VA_ARGS__
 #define STB_LANG_OPTIMIZER_OPERAND(item, ...) if (operand->type == item){__VA_ARGS__;}
 
-#define STB_LANG_OPT_OPERAND(op, instr) tmp = STB_CONCAT(CUR_OPTIMIZER_PREFIX, _optimize_operand)(optimizer, op, instr); if (tmp != NULL){op = tmp;};
+#define STB_LANG_OPT_OPERAND(op, instr) ;
 #define STB_LANG_OPT_DEST(instr) STB_LANG_OPT_OPERAND(instr->dest, instr)
 #define STB_LANG_OPT_LHS(instr) STB_LANG_OPT_OPERAND(instr->left, instr)
 #define STB_LANG_OPT_RHS(instr) STB_LANG_OPT_OPERAND(instr->right, instr)
@@ -56,6 +56,7 @@ STB_CONCAT(CUR_IR_NAME, _Operand) *STB_CONCAT(CUR_OPTIMIZER_PREFIX, _optimize_op
 }; \
 char STB_CONCAT(CUR_OPTIMIZER_PREFIX, _optimize_inner)(CUR_OPTIMIZER_NAME *optimizer, STB_CONCAT(CUR_IR_NAME, _Instr) *instr){ \
     STB_CONCAT(CUR_IR_NAME, _Operand) *tmp = NULL; \
+    (void)tmp; \
     (void)optimizer; \
     if (instr == NULL) return -1; \
     if (0){}cases else { \

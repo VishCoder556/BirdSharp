@@ -1,25 +1,25 @@
 #include <math.h>
 
 // Credits: https://github.com/Camilotk/16-bit-float/blob/main/src/
-unsigned int Lang_Arm_IEEE_754(double value){
-    int EXP_BITS = 8;
-    int MANTISSA_BITS = 23;
+unsigned long long Lang_Arm_IEEE_754(double value){
+    int EXP_BITS = 11;
+    int MANTISSA_BITS = 52;
     int NON_SIGN_BITS = EXP_BITS + MANTISSA_BITS;
     int isNegative = value < 0;
 
     if (value == 0) {
-        return isNegative ? (1 << NON_SIGN_BITS) : 0;
+        return isNegative ? (1ULL << NON_SIGN_BITS) : 0;
     }
 
     int exponent = (int) floor(log(fabs(value)) / log(2));
     double lowerBound = pow(2, exponent);
     double upperBound = pow(2, exponent+1);
-    exponent = (exponent + 127) & 0xFF;
+    exponent = (exponent + 1023) & 0x7FF;
 
     double percentage = (fabs(value) - lowerBound) / (upperBound - lowerBound);
-    unsigned int mantissa = (unsigned int) (8388608.0 * percentage);
+    unsigned long long mantissa = (unsigned long long) (4503599627370496.0 * percentage);
 
-    return ((unsigned int)isNegative << NON_SIGN_BITS) | (exponent << MANTISSA_BITS) | mantissa;
+    return ((unsigned long long)isNegative << NON_SIGN_BITS) | ((unsigned long long)exponent << MANTISSA_BITS) | mantissa;
 }
 
 
@@ -32,8 +32,12 @@ if (right != NULL) { \
     if (right->type == IR_INT) { \
         STB_LANG_EMIT_CODE("\tmov %s, #%s\n", leftr, right->value); \
     }else if (right->type == IR_FLOAT) { \
-        STB_LANG_EMIT_CODE("\tldr w5, =%d\n", Lang_Arm_IEEE_754(atof(right->value))); \
-        STB_LANG_EMIT_CODE("\tfmov %s, w5\n", leftr); \
+        STB_LANG_EMIT_CODE("\tldr x5, =%llu\n", Lang_Arm_IEEE_754(atof(right->value))); \
+        if (leftr[0] == 'v'){ \
+            STB_LANG_EMIT_CODE("\tfmov %s, x5\n", leftr); \
+        }else { \
+            STB_LANG_EMIT_CODE("\tmov %s, x5\n", leftr); \
+        } \
     }else if(right->type == IR_VAR){ \
         int newoffset = STB_CONCAT(CUR_CODEGEN_PREFIX, _get_offset_from_var)(gen, right->value); \
         if (right->extr == 0){ \
@@ -216,7 +220,7 @@ STB_LANG_NEW_CODEGEN(
                     STB_LANG_ARM_MOVE(8, instr->left, STB_LANG_REGISTER(instr->phys[0], 8))
                     STB_LANG_EMIT_CODE("\tstr %s, [sp, #%d]\n", STB_LANG_REGISTER(instr->phys[0], 8), n*8);
                 }else if (instr->dest->value[0] == 'v'){
-                    snprintf(string, 32, "s%d", atoi(instr->dest->value + 1));
+                    snprintf(string, 32, "v%d", atoi(instr->dest->value + 1));
                     STB_LANG_ARM_MOVE(8, instr->left, string)
                 }
                 // STB_LANG_EMIT_CODE("\tana\n");

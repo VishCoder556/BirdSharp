@@ -487,6 +487,7 @@ STB_LANG_PARSE_BODY(
         }
     )
     STB_LANG_GET_TYPEINFO(typeinfo){
+
         STB_LANG_IF_TOKEN(TOKEN_ID, // Function name
             STB_LANG_PARSER_ADVANCE();
             STB_LANG_SAVE(func_name, match_token);
@@ -523,6 +524,7 @@ STB_LANG_PARSE_BODY(
                 }
             )
 
+
         }else {
             parser->cursor = initial_cursor;
             STB_LANG_PARSER_UPDATE();
@@ -536,6 +538,7 @@ STB_LANG_PARSE_BODY(
                 return STB_LANG_AST(.type=AST_FUNCDECL, .typeinfo=typeinfo, .value=func_name.value, .left=STB_LANG_LINKED_LIST(params), .right=NULL);
             }
         )
+
     }
     _exit:
         if (parser->scope_flat == 1){
@@ -1130,7 +1133,6 @@ STB_LANG_NEW_IR(
         IR_JUMP,
         IR_LABEL,
         IR_RET,
-        IR_CAST,
         IR_BOR,
         IR_BAND,
         IR_AND,
@@ -1468,11 +1470,11 @@ STB_LANG_ITERATE_LINKED_LIST(ast->left, _args, Lang_Parser_AST,
             int idx = -1;
             int varidx = -1;
             for (int i = 0; i < paramslen; i++) {
-                if (params[i]->typeinfo.type == AST_TYPE_FLOAT && params[i]->typeinfo.ptrnum == 0){
-                }else if (params[i]->flags != STB_LANG_TYPEINFO_VARIADIC) {
-                    idx++;
-                } else {
+                if (params[i]->flags == STB_LANG_TYPEINFO_VARIADIC) {
                     varidx++;
+                } else if (params[i]->typeinfo.type == AST_TYPE_FLOAT && params[i]->typeinfo.ptrnum == 0){
+                } else {
+                    idx++;
                 }
             }
 
@@ -1482,18 +1484,16 @@ STB_LANG_ITERATE_LINKED_LIST(ast->left, _args, Lang_Parser_AST,
                 Lang_Parser_AST *param = params[i];
 
                 STB_CONCAT(CUR_IR_NAME, _Operand) *operand = lang_ir_ast(ir, param, 0);
-                if (param->flags != STB_LANG_TYPEINFO_VARIADIC) {
-
                 char str[32];
-                if (param->typeinfo.type == AST_TYPE_FLOAT && param->typeinfo.ptrnum == 0){
-                    snprintf(str, 32, "v%d", vidx++); 
-                }else {
-                    snprintf(str, 32, "a%d", idx--); 
-                }
+                if (param->flags != STB_LANG_TYPEINFO_VARIADIC) {
+                    if (param->typeinfo.type == AST_TYPE_FLOAT && param->typeinfo.ptrnum == 0){
+                        snprintf(str, 32, "v%d", vidx++); 
+                    }else {
+                        snprintf(str, 32, "a%d", idx--); 
+                    }
 
-                STB_LANG_IR_EMIT(IR_ASSIGN, STB_LANG_IR_OPERAND(IR_REG, strdup(str)), operand, NULL, .typeinfo=param->typeinfo);
+                    STB_LANG_IR_EMIT(IR_ASSIGN, STB_LANG_IR_OPERAND(IR_REG, strdup(str)), operand, NULL, .typeinfo=param->typeinfo);
                 } else {
-                    char str[32];
                     snprintf(str, 32, ".arg%d", varidx--);
                     STB_LANG_IR_EMIT(IR_ASSIGN, STB_LANG_IR_OPERAND(IR_REG, strdup(str)), operand, NULL, .typeinfo=param->typeinfo);
                 }
@@ -1744,11 +1744,11 @@ if (instr->left->type == IR_INT && instr->right->type == IR_INT){ \
         instr->left->value = strdup(res); \
         STB_LANG_OPTIMIZE(instr); \
 \
-        free(left_value); \
-        free(right_value); \
     } \
 }
 
+        // free(left_value);
+        // free(right_value);
 
 
 STB_LANG_NEW_OPTIMIZER(
@@ -1765,32 +1765,22 @@ STB_LANG_OPTIMIZER_PREFIX(
 ),
 STB_LANG_OPTIMIZER_OPERANDS(
     STB_LANG_OPTIMIZER_OPERAND(IR_REG,
-    //     STB_LANG_GET_OPT_REG(num, operand->value);
-    //     Lang_Optimizer_Reg *r = NULL;
-    //     STB_LANG_GET_OPERAND(r, num);
-    //
-    //     if (r != NULL){
-    //         Lang_IR_Operand *op = r->operand;
-    //         if (op != NULL){
-    //             r->instr->type = IR_NOP;
-    //             free(operand);
-    //
-    //             return op;
-    //             // STB_LANG_OPT_OPERAND(operand, instr);
-    //         }
-    //     }
+        STB_LANG_GET_OPT_REG(num, operand->value);
+        Lang_Optimizer_Reg *r = NULL;
+        STB_LANG_GET_OPERAND(r, num);
+
+        if (r != NULL){
+            Lang_IR_Operand *op = r->operand;
+            if (op != NULL){
+                r->instr->type = IR_NOP;
+                // free(operand);
+
+                return op;
+                // STB_LANG_OPT_OPERAND(operand, instr);
+            }
+        }
     )
 ),
-        // IR_CALL,
-        // IR_JUMP_IF_FALSE,
-        // IR_JUMP,
-        // IR_LABEL,
-        // IR_RET,
-        // IR_CAST,
-        // IR_ADDR,
-        // IR_LOAD,
-        // IR_STORE,
-
 STB_LANG_OPTIMIZER_CASES(
     STB_LANG_OPTIMIZER_CASE(IR_FUNCDEF_BEGIN,
     )
@@ -1799,8 +1789,13 @@ STB_LANG_OPTIMIZER_CASES(
     STB_LANG_OPTIMIZER_CASE(IR_PUSH,
     )
     STB_LANG_OPTIMIZER_CASE(IR_POP,
+        // if (instr->dest->type == IR_REG){
+        //     STB_LANG_OPT_REG(instr->dest->value, NULL);
+        // }
     )
     STB_LANG_OPTIMIZER_CASE(IR_CALL,
+        // char *str = "v0";
+        // STB_LANG_OPT_REG(str, NULL);
     )
     STB_LANG_OPTIMIZER_CASE(IR_JUMP_IF_FALSE,
     )
@@ -1810,77 +1805,84 @@ STB_LANG_OPTIMIZER_CASES(
     )
     STB_LANG_OPTIMIZER_CASE(IR_RET,
     )
-    STB_LANG_OPTIMIZER_CASE(IR_CAST,
-    )
     STB_LANG_OPTIMIZER_CASE(IR_ADDR,
+        // if (instr->dest->type == IR_REG){
+        //     STB_LANG_OPT_REG(instr->dest->value, NULL);
+        // }
     )
     STB_LANG_OPTIMIZER_CASE(IR_LOAD,
+        // if (instr->dest->type == IR_REG){
+        //     STB_LANG_OPT_REG(instr->dest->value, NULL);
+        // }
     )
     STB_LANG_OPTIMIZER_CASE(IR_STORE,
+        // if (instr->dest->type == IR_REG){
+        //     STB_LANG_OPT_REG(instr->dest->value, NULL);
+        // }
     )
     STB_LANG_OPTIMIZER_CASE(IR_ASSIGN,
-        STB_LANG_OPT_LHS(instr);
-        STB_LANG_OPT_RHS(instr);
-        if (instr->dest->type == IR_REG){
-            STB_LANG_OPT_REG(instr->dest->value, instr->left);
-            // instr->type = IR_NOP;
-        }
+        // STB_LANG_OPT_LHS(instr);
+        // STB_LANG_OPT_RHS(instr);
+        // if (instr->dest->type == IR_REG){
+        //     STB_LANG_OPT_REG(instr->dest->value, instr->left);
+        // }
+        // fprintf(stderr, "B\n");
     )
     STB_LANG_OPTIMIZER_CASE(IR_DECL,
     )
     STB_LANG_OPTIMIZER_CASE(IR_ADD,
-        STB_LANG_OPTIMIZE_OPERATION(+)
+        // STB_LANG_OPTIMIZE_OPERATION(+)
     )
     STB_LANG_OPTIMIZER_CASE(IR_SUB,
-        STB_LANG_OPTIMIZE_OPERATION(-)
+        // STB_LANG_OPTIMIZE_OPERATION(-)
     )
     STB_LANG_OPTIMIZER_CASE(IR_MUL,
-        STB_LANG_OPTIMIZE_OPERATION(*)
+        // STB_LANG_OPTIMIZE_OPERATION(*)
     )
     STB_LANG_OPTIMIZER_CASE(IR_DIV,
-        STB_LANG_OPTIMIZE_OPERATION(/)
+        // STB_LANG_OPTIMIZE_OPERATION(/)
     )
     STB_LANG_OPTIMIZER_CASE(IR_MOD,
-        STB_LANG_OPTIMIZE_OPERATION(%)
+        // STB_LANG_OPTIMIZE_OPERATION(%)
     )
     STB_LANG_OPTIMIZER_CASE(IR_LT,
-        STB_LANG_OPTIMIZE_OPERATION(<)
+        // STB_LANG_OPTIMIZE_OPERATION(<)
     )
     STB_LANG_OPTIMIZER_CASE(IR_LTE,
-        STB_LANG_OPTIMIZE_OPERATION(<=)
+        // STB_LANG_OPTIMIZE_OPERATION(<=)
     )
     STB_LANG_OPTIMIZER_CASE(IR_GT,
-        STB_LANG_OPTIMIZE_OPERATION(>)
+        // STB_LANG_OPTIMIZE_OPERATION(>)
     )
     STB_LANG_OPTIMIZER_CASE(IR_GTE,
-        STB_LANG_OPTIMIZE_OPERATION(>=)
+        // STB_LANG_OPTIMIZE_OPERATION(>=)
     )
     STB_LANG_OPTIMIZER_CASE(IR_EQ,
-        STB_LANG_OPTIMIZE_OPERATION(==)
+        // STB_LANG_OPTIMIZE_OPERATION(==)
     )
     STB_LANG_OPTIMIZER_CASE(IR_NEQ,
-        STB_LANG_OPTIMIZE_OPERATION(!=)
+        // STB_LANG_OPTIMIZE_OPERATION(!=)
     )
     STB_LANG_OPTIMIZER_CASE(IR_BOR,
-        STB_LANG_OPTIMIZE_OPERATION(|)
+        // STB_LANG_OPTIMIZE_OPERATION(|)
     )
     STB_LANG_OPTIMIZER_CASE(IR_BAND,
-        STB_LANG_OPTIMIZE_OPERATION(&)
+        // STB_LANG_OPTIMIZE_OPERATION(&)
     )
     STB_LANG_OPTIMIZER_CASE(IR_AND,
-        STB_LANG_OPTIMIZE_OPERATION(&&)
+        // STB_LANG_OPTIMIZE_OPERATION(&&)
     )
     STB_LANG_OPTIMIZER_CASE(IR_OR,
-        STB_LANG_OPTIMIZE_OPERATION(||)
+        // STB_LANG_OPTIMIZE_OPERATION(||)
     )
     STB_LANG_OPTIMIZER_CASE(IR_XOR,
-        STB_LANG_OPTIMIZE_OPERATION(^)
+        // STB_LANG_OPTIMIZE_OPERATION(^)
     )
     STB_LANG_OPTIMIZER_CASE(IR_BSHL,
-        STB_LANG_OPTIMIZE_OPERATION(<<)
+        // STB_LANG_OPTIMIZE_OPERATION(<<)
     )
     STB_LANG_OPTIMIZER_CASE(IR_BSHR,
-        STB_LANG_OPTIMIZE_OPERATION(>>)
+        // STB_LANG_OPTIMIZE_OPERATION(>>)
     )
 )
 );
@@ -2095,6 +2097,7 @@ int main(int argc, char **argv){
 
 
 
+
     // STB_LANG_ITERATE_LINKED_LIST(GetLinkedListHead((*parser), Lang_Parser_AST), field, Lang_Parser_AST,
     //     fprintf(stderr, "Hello World, %d\n", field->type);
     // )
@@ -2104,17 +2107,16 @@ int main(int argc, char **argv){
 
     }
 
-    Lang_RegAlloc *regalloc = lang_regalloc_init(optimizer);
 
-    // for (int i=0; i<regalloc->instrs.datalen; i++){
-    //     printf("%d, %p, %p, %p\n", ir->instrs.data[i].type, ir->instrs.data[i].dest, ir->instrs.data[i].left, ir->instrs.data[i].right);
-    // };
+    Lang_RegAlloc *regalloc = lang_regalloc_init(optimizer);
     lang_regalloc_backtrace(regalloc);
     while (lang_regalloc_alloc(regalloc) == 0){
     }
 
 
+
     Lang_CodeGen *gen = lang_codegen_init(regalloc);
+
     while (lang_codegen_ir(gen) == 0){
     }
 

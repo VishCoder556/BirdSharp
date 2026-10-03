@@ -2,7 +2,7 @@
 #define STB_LANG_REGALLOC_H
 
 #define STB_LANG_INVOKE_TYPENEW4(a) dymarray_typenew(a, 8, 1)
-#define STB_LANG_INVOKE_TYPENEW3(a) dymarray_typenew(a, STB_LANG_REGALLOC_REG_MAX, 1)
+#define STB_LANG_INVOKE_TYPENEW3(a) dymarray_typenew(a, 30, 4)
 
 #define STB_LANG_REGALLOC_ERROR_MINOR(files, where, fil, type, ...) \
 if (fil > files.datalen){ \
@@ -22,14 +22,14 @@ stb_lang_error_minor(files.data[fil].name, files.data[fil].contents, where, type
 if (instr->a != NULL){ \
     if (instr->a->type == reg){ \
         int found = 0; \
-        for (int i=0; i<regalloc->backtrack.datalen; i++){ \
-            if (strcmp(regalloc->backtrack.data[i].val, instr->a->value) == 0){ \
+        for (int i=0; i<regalloc->backtrack->datalen; i++){ \
+            if (strcmp(regalloc->backtrack->data[i].val, instr->a->value) == 0){ \
                 found = 1; \
             }; \
         }; \
         if (found == 0){ \
             instr->a->isLast = 1; \
-            STB_CONCAT(STB_CONCAT3(dymarray_, CUR_REGALLOC_NAME, _Register_BackTrack), _add)(&regalloc->backtrack, (STB_CONCAT(CUR_REGALLOC_NAME, _Register_BackTrack)){instr->a->value}); \
+            STB_CONCAT(STB_CONCAT3(dymarray_, CUR_REGALLOC_NAME, _Register_BackTrack), _add)(regalloc->backtrack, (STB_CONCAT(CUR_REGALLOC_NAME, _Register_BackTrack)){instr->a->value}); \
         } \
     }; \
 } \
@@ -65,7 +65,7 @@ typedef struct { \
     STB_CONCAT3(dymarray_, CUR_IR_NAME, _Instr) instrs; \
     STB_CONCAT(CUR_TYPEINFO_NAME, _ScopeL) root_scope; \
     STB_CONCAT(CUR_TOKENIZER_NAME, _File) file; \
-    STB_CONCAT3(dymarray_, CUR_REGALLOC_NAME, _Register_BackTrack) backtrack; \
+    STB_CONCAT3(dymarray_, CUR_REGALLOC_NAME, _Register_BackTrack) *backtrack; \
     int cursor; \
     STB_CONCAT3(dymarray_, CUR_IR_NAME, _Symbol) symbols; \
     STB_CONCAT3(dymarray_, CUR_TOKENIZER_NAME, _File) files; \
@@ -144,13 +144,18 @@ STB_CONCAT(CUR_REGALLOC_NAME, _VirtualRegister) STB_CONCAT(CUR_REGALLOC_PREFIX, 
 CUR_REGALLOC_NAME *STB_CONCAT(CUR_REGALLOC_PREFIX, _init)(CUR_OPTIMIZER_NAME *opt){ \
     CUR_REGALLOC_NAME *regalloc = malloc(sizeof(*regalloc)); \
     regalloc->virtual_regs = malloc(sizeof(*regalloc->virtual_regs)); \
+    if (!regalloc->virtual_regs) { \
+        fprintf(stderr, "Failed to allocate virtual_regs container\n"); \
+        exit(-1); \
+    } \
     *regalloc->virtual_regs = STB_CONCAT(STB_CONCAT3(dymarray_, CUR_REGALLOC_NAME, _VirtualRegister), _new)(); \
     regalloc->root_scope = opt->root_scope; \
     regalloc->file = opt->file; \
     regalloc->files = opt->files; \
     regalloc->instrs = opt->instrs; \
     regalloc->regs = STB_CONCAT(CUR_REGALLOC_PREFIX, _regs_init)(); \
-    regalloc->backtrack = STB_CONCAT(STB_CONCAT3(dymarray_, CUR_REGALLOC_NAME, _Register_BackTrack), _new)(); \
+    regalloc->backtrack = malloc(sizeof(*regalloc->backtrack)); \
+    *regalloc->backtrack = STB_CONCAT(STB_CONCAT3(dymarray_, CUR_REGALLOC_NAME, _Register_BackTrack), _new)(); \
     regalloc->cursor = 0; \
     regalloc->symbols = opt->symbols; \
     return regalloc; \

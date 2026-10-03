@@ -85,12 +85,12 @@ void STB_CONCAT(CUR_CODEGEN_PREFIX, _add_text)(CUR_CODEGEN_NAME *gen, int offset
         while (cap < space){ \
             cap *= 2; \
         } \
-        gen->code.datacap = cap; \
-        gen->code.data = realloc(gen->code.data, gen->code.datacap); \
+        gen->code.data = realloc(gen->code.data, cap); \
         if (!gen->code.data){ \
             STB_LANG_CODEGEN_ERROR_MINOR(offset, file, "CodeGenError", "Not enough memory to store assembly output"); \
             return; \
         } \
+        gen->code.datacap = cap; \
     } \
     memcpy(gen->code.data+gen->code.datalen, st, len); \
     gen->code.datalen += len; \
