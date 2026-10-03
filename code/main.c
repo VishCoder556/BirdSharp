@@ -1,6 +1,6 @@
 /* Programming Language Development
  *
- * -- NAME NOT DECIDED --
+ * -- BIRDSHARP --
  *
  *
 */
@@ -22,14 +22,14 @@
 #include "../libraries/regalloc/regalloc.h"
 #include "../libraries/optimizer/optimizer.h"
 
-char *HELP = "New Programming Language HELP Manual\n\t"
+char *HELP = "BirdSharp HELP Manual\n\t"
 "-help: creates this page\n";
 
 
 #define CUR_TOKENIZER_NAME Lang_Tokenizer
 #define CUR_TOKENIZER_PREFIX lang_tokenizer
 
-STB_LANG_NEW_TOKENIZER( 
+STB_LANG_NEW_TOKENIZER(
     STB_LANG_TOKENS(
         TOKEN_LP,
         TOKEN_RP,
@@ -148,6 +148,16 @@ typedef struct {
     LinkedList(Lang_Parser_IR_Label);
 }Lang_Parser_IR_Labels;
 
+#define String char*
+dymarray_typenew(String, 10, 1);
+
+typedef struct {
+    dymarray_String frameworks;
+    dymarray_String libraries;
+    dymarray_String libpaths;
+}Lang_LinkerData;
+Lang_LinkerData linker_data = (Lang_LinkerData){0};
+
 #define CUR_TYPEINFO_NAME Lang_TypeInfo
 #define CUR_TYPEINFO_PREFIX lang_typeinfo
 
@@ -197,7 +207,28 @@ if (strcmp(data, "scope.flat") == 0){ \
     }; \
     STB_LANG_PARSER_EXPECT(TOKEN_RB); \
     return STB_LANG_AST(.type=AST_IR_LIST, .typeinfo={.type=-1, .ptrnum=-1}, .value=strdup(data), .left=STB_LANG_LINKED_LIST(list), .right=NULL); \
-}\
+}else if (strcmp(data, "linker.framework") == 0){ \
+    if (token.type == TOKEN_STRING){ \
+         dymarray_String_add(&linker_data.frameworks, token.value); \
+    }else { \
+        STB_LANG_PARSER_ERROR_MINOR(token.offset, token.file, "InlineIRError", "Unexpected argument to mode \"linker.framework\""); \
+    }; \
+    STB_LANG_PARSER_ADVANCE(); \
+}else if (strcmp(data, "linker.library") == 0){ \
+    if (token.type == TOKEN_STRING){ \
+         dymarray_String_add(&linker_data.libraries, token.value); \
+    }else { \
+        STB_LANG_PARSER_ERROR_MINOR(token.offset, token.file, "InlineIRError", "Unexpected argument to mode \"linker.library\""); \
+    }; \
+    STB_LANG_PARSER_ADVANCE(); \
+}else if (strcmp(data, "linker.libpath") == 0){ \
+    if (token.type == TOKEN_STRING){ \
+         dymarray_String_add(&linker_data.libpaths, token.value); \
+    }else { \
+        STB_LANG_PARSER_ERROR_MINOR(token.offset, token.file, "InlineIRError", "Unexpected argument to mode \"linker.library\""); \
+    }; \
+    STB_LANG_PARSER_ADVANCE(); \
+} \
 return STB_LANG_AST(.type=AST_MODE, .typeinfo={.type=-1, .ptrnum=-1}, .value=strdup(data), .left=NULL, .right=NULL);
 
 
@@ -211,7 +242,8 @@ STB_LANG_DEFINE_TYPEINFO(
     AST_TYPE_CHAR,
     AST_TYPE_STRING,
     AST_TYPE_ARRAY,
-    AST_TYPE_STRUCT
+    AST_TYPE_STRUCT,
+    AST_TYPE_FLOAT
 )
 
 STB_LANG_NEW_PARSER(
@@ -285,7 +317,8 @@ STB_LANG_ASTS(
     AST_BSHL,
     AST_BSHR,
     AST_IR_INSTRUCTION,
-    AST_IR_LIST
+    AST_IR_LIST,
+    AST_FLOAT
 ),
 STB_LANG_PARSER_FIELDS(
     int scope_flat;
@@ -647,7 +680,21 @@ STB_LANG_PARSE_EXPR(
         left = STB_LANG_AST(.type = AST_EXPR, .left = STB_LANG_AS_AST(l))
     )
     STB_LANG_MATCH_TOKEN(TOKEN_NUM,  
+        STB_LANG_SAVE(prev_t_token, token);
         STB_LANG_PARSER_ADVANCE();
+        STB_LANG_IF_TOKEN(TOKEN_DOT, 
+            STB_LANG_PARSER_ADVANCE();
+        STB_LANG_IF_TOKEN(TOKEN_NUM, 
+            int str2len = strlen(prev_t_token.value) + strlen(token.value) + 2;
+            char *str2 = malloc(str2len);
+            snprintf(str2, str2len, "%s.%s", prev_t_token.value, token.value);
+            free(prev_t_token.value);
+            free(token.value);
+            left = STB_LANG_AST(.type=AST_FLOAT, .typeinfo={.type=AST_TYPE_FLOAT, .ptrnum=0}, .value=str2, .left=NULL, .right=NULL);
+            STB_LANG_PARSER_ADVANCE();
+            goto skip;
+        )
+        )
         left = STB_LANG_AST_LITERAL(AST_INT, match_token);
     )
     STB_LANG_MATCH_TOKEN(TOKEN_STRING,  
@@ -689,6 +736,9 @@ skip:
 ),
 STB_LANG_PARSE_TYPEINFO(
     Lang_TypeInfo_Typeinfo typeinfo = (Lang_TypeInfo_Typeinfo){.type=STB_LANG_TYPEINFO_NONE, .ptrnum=0};
+    STB_LANG_IF_VALUE(TOKEN_ID, "unsigned",
+        STB_LANG_PARSER_ADVANCE();
+    )
     STB_LANG_IF_VALUE(TOKEN_ID, "ptr",
         STB_LANG_PARSER_ADVANCE();
         STB_LANG_PARSER_EXPECT(TOKEN_LT);
@@ -717,6 +767,10 @@ STB_LANG_PARSE_TYPEINFO(
     )
     STB_LANG_IF_VALUE(TOKEN_ID, "char",
         typeinfo.type = AST_TYPE_CHAR;
+        STB_LANG_PARSER_ADVANCE();
+    )
+    STB_LANG_IF_VALUE(TOKEN_ID, "float",
+        typeinfo.type = AST_TYPE_FLOAT;
         STB_LANG_PARSER_ADVANCE();
     )
     STB_LANG_IF_VALUE(TOKEN_ID, "string",
@@ -749,6 +803,7 @@ STB_LANG_TYPEINFO_SIZE(
     switch(typeinfo.type){
         case AST_TYPE_VOID: return 0;
         case AST_TYPE_INT: return 8;
+        case AST_TYPE_FLOAT: return 4;
         case AST_TYPE_CHAR: return 1;
         case AST_TYPE_STRING: return 8;
         case AST_TYPE_ARRAY: return STB_LANG_LOOKUP_SIZE(root_scope, typeinfo.data.array.elem_type) * typeinfo.data.array.size;
@@ -891,6 +946,9 @@ STB_LANG_NEW_TYPEINFO(
         )
         STB_LANG_TYPEINFO_CASE(AST_INT,
             STB_LANG_TYPEINFO_ASSUME_TYPE(STB_LANG_TYPEINFO(.type=AST_TYPE_INT, .ptrnum=0));
+        )
+        STB_LANG_TYPEINFO_CASE(AST_FLOAT,
+            STB_LANG_TYPEINFO_ASSUME_TYPE(STB_LANG_TYPEINFO(.type=AST_TYPE_FLOAT, .ptrnum=0));
         )
         STB_LANG_TYPEINFO_CASE(AST_STRING,
             STB_LANG_TYPEINFO_ASSUME_TYPE(STB_LANG_TYPEINFO(.type=AST_TYPE_STRING, .ptrnum=0));
@@ -1042,6 +1100,7 @@ STB_LANG_NEW_TYPEINFO(
 STB_LANG_NEW_IR(
     STB_LANG_IR_OPERANDS(
         IR_INT,
+        IR_FLOAT,
         IR_VAR,
         IR_REG,
         IR_MEM
@@ -1398,6 +1457,9 @@ STB_LANG_ITERATE_LINKED_LIST(ast->left, _args, Lang_Parser_AST,
         STB_LANG_IR_CASE(AST_INT,
             STB_LANG_IR_RETURN_SELF(IR_INT);
         )
+        STB_LANG_IR_CASE(AST_FLOAT,
+            STB_LANG_IR_RETURN_SELF(IR_FLOAT);
+        )
         STB_LANG_IR_CASE(AST_FUNCALL,
             Lang_Parser_AST *params[64]; int paramslen = 0;
             STB_LANG_ITERATE_LINKED_LIST(ast->left, arg, Lang_Parser_AST,
@@ -1406,7 +1468,8 @@ STB_LANG_ITERATE_LINKED_LIST(ast->left, _args, Lang_Parser_AST,
             int idx = -1;
             int varidx = -1;
             for (int i = 0; i < paramslen; i++) {
-                if (params[i]->flags != STB_LANG_TYPEINFO_VARIADIC) {
+                if (params[i]->typeinfo.type == AST_TYPE_FLOAT && params[i]->typeinfo.ptrnum == 0){
+                }else if (params[i]->flags != STB_LANG_TYPEINFO_VARIADIC) {
                     idx++;
                 } else {
                     varidx++;
@@ -1414,18 +1477,25 @@ STB_LANG_ITERATE_LINKED_LIST(ast->left, _args, Lang_Parser_AST,
             }
 
 
+            int vidx = 0;
             for (int i = paramslen - 1; i >= 0; i--) {
                 Lang_Parser_AST *param = params[i];
 
                 STB_CONCAT(CUR_IR_NAME, _Operand) *operand = lang_ir_ast(ir, param, 0);
                 if (param->flags != STB_LANG_TYPEINFO_VARIADIC) {
-                    char str[32];
+
+                char str[32];
+                if (param->typeinfo.type == AST_TYPE_FLOAT && param->typeinfo.ptrnum == 0){
+                    snprintf(str, 32, "v%d", vidx++); 
+                }else {
                     snprintf(str, 32, "a%d", idx--); 
-                    STB_LANG_IR_EMIT(IR_ASSIGN, STB_LANG_IR_OPERAND(IR_REG, strdup(str)), operand, NULL);
+                }
+
+                STB_LANG_IR_EMIT(IR_ASSIGN, STB_LANG_IR_OPERAND(IR_REG, strdup(str)), operand, NULL, .typeinfo=param->typeinfo);
                 } else {
                     char str[32];
                     snprintf(str, 32, ".arg%d", varidx--);
-                    STB_LANG_IR_EMIT(IR_ASSIGN, STB_LANG_IR_OPERAND(IR_REG, strdup(str)), operand, NULL);
+                    STB_LANG_IR_EMIT(IR_ASSIGN, STB_LANG_IR_OPERAND(IR_REG, strdup(str)), operand, NULL, .typeinfo=param->typeinfo);
                 }
             }
             STB_LANG_IR_EMIT(IR_CALL, STB_LANG_IR_OPERAND(IR_VAR, ast->value), NULL, NULL);
@@ -1630,7 +1700,9 @@ dymarray_typenew(Lang_Optimizer_Reg, 20, 5);
 #define STB_LANG_GET_OPT_REG(reg, str) \
 int num = -1; \
 if (str[0] == 't'){ \
-    num = atoi(str+1); \
+    num = atoi(str+1) + 1; \
+}else if (strcmp(str, "v0") == 0){ \
+     num = 0; \
 }
 
 #define STB_LANG_OPT_REG(str, ...) \
@@ -1709,7 +1781,43 @@ STB_LANG_OPTIMIZER_OPERANDS(
     //     }
     )
 ),
+        // IR_CALL,
+        // IR_JUMP_IF_FALSE,
+        // IR_JUMP,
+        // IR_LABEL,
+        // IR_RET,
+        // IR_CAST,
+        // IR_ADDR,
+        // IR_LOAD,
+        // IR_STORE,
+
 STB_LANG_OPTIMIZER_CASES(
+    STB_LANG_OPTIMIZER_CASE(IR_FUNCDEF_BEGIN,
+    )
+    STB_LANG_OPTIMIZER_CASE(IR_FUNCDEF_END,
+    )
+    STB_LANG_OPTIMIZER_CASE(IR_PUSH,
+    )
+    STB_LANG_OPTIMIZER_CASE(IR_POP,
+    )
+    STB_LANG_OPTIMIZER_CASE(IR_CALL,
+    )
+    STB_LANG_OPTIMIZER_CASE(IR_JUMP_IF_FALSE,
+    )
+    STB_LANG_OPTIMIZER_CASE(IR_JUMP,
+    )
+    STB_LANG_OPTIMIZER_CASE(IR_LABEL,
+    )
+    STB_LANG_OPTIMIZER_CASE(IR_RET,
+    )
+    STB_LANG_OPTIMIZER_CASE(IR_CAST,
+    )
+    STB_LANG_OPTIMIZER_CASE(IR_ADDR,
+    )
+    STB_LANG_OPTIMIZER_CASE(IR_LOAD,
+    )
+    STB_LANG_OPTIMIZER_CASE(IR_STORE,
+    )
     STB_LANG_OPTIMIZER_CASE(IR_ASSIGN,
         STB_LANG_OPT_LHS(instr);
         STB_LANG_OPT_RHS(instr);
@@ -1717,6 +1825,8 @@ STB_LANG_OPTIMIZER_CASES(
             STB_LANG_OPT_REG(instr->dest->value, instr->left);
             // instr->type = IR_NOP;
         }
+    )
+    STB_LANG_OPTIMIZER_CASE(IR_DECL,
     )
     STB_LANG_OPTIMIZER_CASE(IR_ADD,
         STB_LANG_OPTIMIZE_OPERATION(+)
@@ -1909,7 +2019,26 @@ STB_LANG_NEW_DRIVER(
     char *asm_path = "res/main.s";
     char *exec_path = "res/main.out";
     STB_LANG_DRIVER_WRITE_DATA(asm_path);
-    STB_LANG_DRIVER_RUN_SCRIPT("clang -O0 -arch arm64 %s -o %s -e _main -Wl,-w -Wl,-platform_version,macos,11.0,11.0 -lc", asm_path, exec_path);
+
+    char exec_instr[500];
+    strncpy(exec_instr, "clang -O0 -arch arm64 %s -o %s -e _main -Wl,-w -Wl,-platform_version,macos,11.0,11.0 -lc", 500);
+
+    for (int i=0; i<linker_data.libpaths.datalen; i++){
+        strcat(exec_instr, " -L");
+        strcat(exec_instr, linker_data.libpaths.data[i]);
+    };
+
+    for (int i=0; i<linker_data.libraries.datalen; i++){
+        strcat(exec_instr, " lib");
+        strcat(exec_instr, linker_data.libraries.data[i]);
+        strcat(exec_instr, ".a");
+    };
+
+    for (int i=0; i<linker_data.frameworks.datalen; i++){
+        strcat(exec_instr, " -framework ");
+        strcat(exec_instr, linker_data.frameworks.data[i]);
+    };
+    STB_LANG_DRIVER_RUN_SCRIPT(exec_instr, asm_path, exec_path);
 
     // STB_LANG_DRIVER_RUN_SCRIPT( "yasm -f macho64 %s -o %s", asm_path, obj_path);
     // STB_LANG_DRIVER_RUN_SCRIPT(
@@ -1924,6 +2053,9 @@ STB_LANG_NEW_DRIVER(
 );
 
 int main(int argc, char **argv){
+    linker_data.frameworks = dymarray_String_new();
+    linker_data.libraries = dymarray_String_new();
+    linker_data.libpaths = dymarray_String_new();
 
     char *input_file = NULL;
     for (int i=1; i<argc; i++){

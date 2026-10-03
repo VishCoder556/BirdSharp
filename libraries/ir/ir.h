@@ -15,6 +15,7 @@
 STB_CONCAT(STB_CONCAT3(dymarray_, CUR_IR_NAME, _Instr), _add)(&ir->instrs, (STB_CONCAT(CUR_IR_NAME, _Instr)){.type=typ, .left=lef, .right=righ, .dest=des, .offset=offset, .file=file, .phys={-1}, __VA_ARGS__})
 
 
+
 #define STB_LANG_IR_RUN(place) do {\
 STB_CONCAT(CUR_PARSER_NAME, _AST) *_block = (STB_CONCAT(CUR_PARSER_NAME, _AST)*)place; \
 while (_block != NULL){ \

@@ -155,7 +155,7 @@ for (int i=0; i<typeinfos->datalen; i++){ \
     if (param == NULL){ \
         STB_LANG_TYPEINFO_ERROR_MINOR(ast->offset, ast->file, "FunctionError", "Too few function arguments provided to function \"%s\"", symnew.name); \
     } \
-    STB_LANG_EXPECT_TYPEINFO_EQ(param->typeinfo, typeinfos->data[i], ast->offset, ast->file); \
+    STB_LANG_EXPECT_TYPEINFO_EQ(param->typeinfo, typeinfos->data[i], param->offset, param->file, "Argument passed with invalid type"); \
     param = (STB_CONCAT(CUR_PARSER_NAME, _AST)*)param->next; \
 } \
 if (param != NULL){ \
@@ -340,13 +340,13 @@ STB_LANG_EXPAND_LIST(ast->right); \
 #define STB_LANG_EXPAND_RHS() do{ if (STB_LANG_RHS(ast) != NULL){ STB_CONCAT(CUR_TYPEINFO_PREFIX, _check_ast)(checker, STB_LANG_RHS(ast));}}while(0);
 #define STB_LANG_EXPAND_LHS() do{ STB_CONCAT(CUR_TYPEINFO_PREFIX, _check_ast)(checker, STB_LANG_LHS(ast));}while(0);
 
-#define STB_LANG_EXPECT_TYPEINFO_EQ(left, right, offset, file)  \
+#define STB_LANG_EXPECT_TYPEINFO_EQ(left, right, offset, file, ...)  \
 if (left.type != right.type || left.ptrnum != right.ptrnum){ \
-    STB_LANG_TYPEINFO_ERROR_MINOR(offset, file, "TypeinfoError", "Expected types to be equal"); \
+    STB_LANG_TYPEINFO_ERROR_MINOR(offset, file, "TypeinfoError", __VA_ARGS__); \
 }
 
 #define STB_LANG_EXPECT_TYPE_EQ(left, right) if (left != NULL && right != NULL){ \
-    STB_LANG_EXPECT_TYPEINFO_EQ(left->typeinfo, right->typeinfo, left->offset, left->file) \
+    STB_LANG_EXPECT_TYPEINFO_EQ(left->typeinfo, right->typeinfo, left->offset, left->file, "Expected types to be equal") \
 }
 
 

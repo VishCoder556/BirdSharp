@@ -1,3 +1,28 @@
+#include <math.h>
+
+// Credits: https://github.com/Camilotk/16-bit-float/blob/main/src/
+unsigned int Lang_Arm_IEEE_754(double value){
+    int EXP_BITS = 8;
+    int MANTISSA_BITS = 23;
+    int NON_SIGN_BITS = EXP_BITS + MANTISSA_BITS;
+    int isNegative = value < 0;
+
+    if (value == 0) {
+        return isNegative ? (1 << NON_SIGN_BITS) : 0;
+    }
+
+    int exponent = (int) floor(log(fabs(value)) / log(2));
+    double lowerBound = pow(2, exponent);
+    double upperBound = pow(2, exponent+1);
+    exponent = (exponent + 127) & 0xFF;
+
+    double percentage = (fabs(value) - lowerBound) / (upperBound - lowerBound);
+    unsigned int mantissa = (unsigned int) (8388608.0 * percentage);
+
+    return ((unsigned int)isNegative << NON_SIGN_BITS) | (exponent << MANTISSA_BITS) | mantissa;
+}
+
+
 #define STB_LANG_ARM_MOVE(size, right, ...) {\
 if (right != NULL) { \
     char *leftr = __VA_ARGS__; \
@@ -6,6 +31,9 @@ if (right != NULL) { \
     } \
     if (right->type == IR_INT) { \
         STB_LANG_EMIT_CODE("\tmov %s, #%s\n", leftr, right->value); \
+    }else if (right->type == IR_FLOAT) { \
+        STB_LANG_EMIT_CODE("\tldr w5, =%d\n", Lang_Arm_IEEE_754(atof(right->value))); \
+        STB_LANG_EMIT_CODE("\tfmov %s, w5\n", leftr); \
     }else if(right->type == IR_VAR){ \
         int newoffset = STB_CONCAT(CUR_CODEGEN_PREFIX, _get_offset_from_var)(gen, right->value); \
         if (right->extr == 0){ \
@@ -39,6 +67,8 @@ if (right != NULL) { \
     }else if (right->type == IR_MEM){ \
         STB_LANG_EMIT_CODE("\tadrp %s, mem_%ld@PAGE\n", leftr, (long)right->value); \
         STB_LANG_EMIT_CODE("\tadd %s, %s, mem_%ld@PAGEOFF\n", leftr, leftr, (long)right->value); \
+    }else { \
+        assert(0 && "Unexpected thing in ARM gen"); \
     } \
 } \
 }
@@ -185,6 +215,9 @@ STB_LANG_NEW_CODEGEN(
                     // STB_LANG_EMIT_CODE("\tstart\n");
                     STB_LANG_ARM_MOVE(8, instr->left, STB_LANG_REGISTER(instr->phys[0], 8))
                     STB_LANG_EMIT_CODE("\tstr %s, [sp, #%d]\n", STB_LANG_REGISTER(instr->phys[0], 8), n*8);
+                }else if (instr->dest->value[0] == 'v'){
+                    snprintf(string, 32, "s%d", atoi(instr->dest->value + 1));
+                    STB_LANG_ARM_MOVE(8, instr->left, string)
                 }
                 // STB_LANG_EMIT_CODE("\tana\n");
             };
