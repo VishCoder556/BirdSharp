@@ -80,6 +80,7 @@ STB_CONCAT(CUR_REGALLOC_NAME, _Reg) STB_CONCAT(CUR_REGALLOC_PREFIX, _alloc_regis
             return (STB_CONCAT(CUR_REGALLOC_NAME, _Reg))v; \
         } \
     } \
+    stb_lang_error_major_global("RegisterError", "Could not allocate a register"); \
     return -1; \
 }; \
 char *STB_CONCAT(CUR_REGALLOC_PREFIX, _register_from_reg_inner)(STB_CONCAT(CUR_REGALLOC_NAME, _Reg) r, int size){ \

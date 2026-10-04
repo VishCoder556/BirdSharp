@@ -17,6 +17,8 @@
 
 #define STB_LANG_TYPEINFO_CASES(...) __VA_ARGS__
 
+#define STB_LANG_TYPEINFO_CHECK_TYPES(...) __VA_ARGS__
+
 
 #define STB_LANG_TYPEINFO_ERROR_MINOR(where, fil, type, ...) \
 if (fil > checker->files.datalen){ \
@@ -191,7 +193,7 @@ STB_CONCAT(STB_CONCAT3(dymarray_, CUR_TYPEINFO_NAME, _ScopeL), _add)(&(news->chi
 curscope = (STB_CONCAT(CUR_TYPEINFO_NAME, _ScopeL))__VA_ARGS__;
 
 
-#define STB_LANG_NEW_TYPEINFO(_fields, code_init, code_suffix, _cases) \
+#define STB_LANG_NEW_TYPEINFO(_fields, code_init, code_suffix, typcheck, _cases) \
 typedef struct { \
     STB_CONCAT(CUR_PARSER_NAME, _AST) *head; \
     STB_CONCAT(CUR_PARSER_NAME, _AST) *tail; \
@@ -228,6 +230,14 @@ int STB_CONCAT(CUR_TYPEINFO_PREFIX, _symbol_find_from_symbols)(STB_CONCAT3(dymar
 exit: \
     return 0; \
 } \
+void STB_CONCAT(CUR_TYPEINFO_PREFIX, _expect_type_eq)(CUR_TYPEINFO_NAME *checker, STB_CONCAT(CUR_PARSER_NAME, _AST) *left, STB_CONCAT(CUR_PARSER_NAME, _AST) *right){ \
+    if (left != NULL && right != NULL){ \
+        typcheck; \
+        if (left->typeinfo.type != right->typeinfo.type || left->typeinfo.ptrnum != right->typeinfo.ptrnum){ \
+            STB_LANG_TYPEINFO_ERROR_MINOR(left->offset, left->file, "TypeinfoError", "Expected types to be equal"); \
+        } \
+    } \
+}; \
 STB_CONCAT(CUR_TYPEINFO_NAME, _Scope) * STB_CONCAT(CUR_TYPEINFO_PREFIX, _symbol_find_scope)(STB_CONCAT(CUR_TYPEINFO_NAME, _Scope) *scope, char *query){ \
 \
     \
@@ -345,9 +355,8 @@ if (left.type != right.type || left.ptrnum != right.ptrnum){ \
     STB_LANG_TYPEINFO_ERROR_MINOR(offset, file, "TypeinfoError", __VA_ARGS__); \
 }
 
-#define STB_LANG_EXPECT_TYPE_EQ(left, right) if (left != NULL && right != NULL){ \
-    STB_LANG_EXPECT_TYPEINFO_EQ(left->typeinfo, right->typeinfo, left->offset, left->file, "Expected types to be equal") \
-}
+#define STB_LANG_EXPECT_TYPE_EQ(left, right) STB_CONCAT(CUR_TYPEINFO_PREFIX, _expect_type_eq)(checker, left, right)
+
 
 
 #endif

@@ -1,7 +1,7 @@
 #!include "examples/include/std.lang"
 
 string int_to_string(int num){
-    ptr<int> str = malloc(200)
+    ptr<char> str = cast(ptr<char>, malloc(200));
 
     int temp = num;
     int j = 0;
@@ -10,31 +10,36 @@ string int_to_string(int num){
     }
 
     if (num == 0){
-        deref(str) = 48;
-        deref(str + cast(ptr<int>, 1)) = 0;
-        return str;
+        deref(str) = cast(char, 48);
+        deref(str + cast(ptr<char>, 1)) = cast(char, 0);
+        return cast(string, str);
     }
+
     while (temp != 0) {
         int t = temp % 10;
-        deref(str + cast(ptr<int>, j)) = t + 48;
+        deref(str + cast(ptr<char>, j)) = cast(char, t + 48);
         temp = temp / 10;
         j = j + 1;
     }
+
     if (num < 0) {
-        deref(str + cast(ptr<int>, j)) = 45;
+        deref(str + cast(ptr<char>, j)) = cast(char, 45); // '-'
         j = j + 1;
     }
+
+    deref(str + cast(ptr<char>, j)) = cast(char, 0);
+
     int end = j - 1;
     int begin = 0;
     while (begin < end) {
-        int start1 = deref(str + cast(ptr<int>, begin));
-        deref(str + cast(ptr<int>, begin)) = deref(str + cast(ptr<int>, end));
-        deref(str + cast(ptr<int>, end)) = start1;
+        char temp_char = deref(str + cast(ptr<char>, begin));
+        deref(str + cast(ptr<char>, begin)) = deref(str + cast(ptr<char>, end));
+        deref(str + cast(ptr<char>, end)) = temp_char;
         begin = begin + 1;
         end = end - 1;
     }
-    deref(str + cast(ptr<int>, j)) = 0;
-    return cast(string, str)
+
+    return cast(string, str);
 }
 
 int main(int argc, int argv){

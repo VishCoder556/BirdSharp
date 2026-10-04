@@ -34,7 +34,12 @@ if (right != NULL) { \
     }else if (right->type == IR_FLOAT) { \
         STB_LANG_EMIT_CODE("\tldr x5, =%llu\n", Lang_Arm_IEEE_754(atof(right->value))); \
         if (leftr[0] == 'v'){ \
-            STB_LANG_EMIT_CODE("\tfmov %s, x5\n", leftr); \
+            char fp_reg[16]; \
+            snprintf(fp_reg, sizeof(fp_reg), "s%s", leftr + 1); \
+            STB_LANG_EMIT_CODE("\tfmov d0, x5\n"); \
+            STB_LANG_EMIT_CODE("\tfcvt %s, d0\n", fp_reg); \
+        }else if (leftr[0] == 'w'){ \
+            STB_LANG_EMIT_CODE("\tmov %s, w5\n", leftr); \
         }else { \
             STB_LANG_EMIT_CODE("\tmov %s, x5\n", leftr); \
         } \
@@ -59,7 +64,11 @@ if (right != NULL) { \
         } \
     }else if (right->type == IR_REG){ \
         if (right->value[0] == 'a'){ \
-            STB_LANG_EMIT_CODE("\tmov %s, x%d\n", leftr, atoi(right->value + 1)); \
+            if (size == 4){ \
+                STB_LANG_EMIT_CODE("\tmov %s, w%d\n", leftr, atoi(right->value + 1)); \
+            }else { \
+                STB_LANG_EMIT_CODE("\tmov %s, x%d\n", leftr, atoi(right->value + 1)); \
+            } \
         }else if (right->value[0] == '.'){ \
             int n = atoi(instr->dest->value + 4); \
             STB_LANG_EMIT_CODE("\tldr %s, [sp, #%d]\n", leftr, n * 8); \
@@ -211,6 +220,8 @@ STB_LANG_NEW_CODEGEN(
                 if (instr->dest->value[0] == 'a'){
                     snprintf(string, 32, "x%d", atoi(instr->dest->value + 1));
                     STB_LANG_ARM_MOVE(8, instr->left, string)
+                    int offset = (atoi(instr->dest->value+1) + 1) * 16;
+                    STB_LANG_EMIT_CODE("\tstr %s, [sp, #-%d]\n", string, offset); // New bug fix: dump args to stack
                 }else if (instr->dest->value[0] == 't'){
                     snprintf(string, 32, "%s", instr->dest->value);
                     STB_LANG_ARM_MOVE(8, instr->left, string)
@@ -241,6 +252,11 @@ STB_LANG_NEW_CODEGEN(
             );
         )
         STB_LANG_CODEGEN_CASE(IR_CALL,
+            long num = (long)instr->typeinfo.type; // New bug fix: dump args to the stack
+            for (int i = 0; i <= num; i++) {
+                int offset = (i + 1) * 16;
+                STB_LANG_EMIT_CODE("\tldr x%d, [sp, #-%d]\n", i, offset);
+            }
             STB_LANG_EMIT_CODE("\tbl _%s\n", instr->dest->value);
         )
         STB_LANG_CODEGEN_CASE(IR_JUMP,
@@ -291,6 +307,7 @@ STB_LANG_NEW_CODEGEN(
         STB_LANG_CODEGEN_CASE(IR_AND,
             char *left = STB_LANG_REGISTER(instr->phys[0], 8);
             char *right = STB_LANG_REGISTER(instr->phys[1], 8);
+
             STB_LANG_ARM_MOVE(8, instr->left, left);
             STB_LANG_ARM_MOVE(8, instr->right, right);
 

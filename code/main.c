@@ -239,6 +239,8 @@ return STB_LANG_AST(.type=AST_MODE, .typeinfo={.type=-1, .ptrnum=-1}, .value=str
 STB_LANG_DEFINE_TYPEINFO(
     AST_TYPE_VOID,
     AST_TYPE_INT,
+    AST_TYPE_I32,
+    AST_TYPE_I64,
     AST_TYPE_CHAR,
     AST_TYPE_STRING,
     AST_TYPE_ARRAY,
@@ -768,6 +770,14 @@ STB_LANG_PARSE_TYPEINFO(
         typeinfo.type = AST_TYPE_INT;
         STB_LANG_PARSER_ADVANCE();
     )
+    STB_LANG_IF_VALUE(TOKEN_ID, "i32",
+        typeinfo.type = AST_TYPE_I32;
+        STB_LANG_PARSER_ADVANCE();
+    )
+    STB_LANG_IF_VALUE(TOKEN_ID, "i64",
+        typeinfo.type = AST_TYPE_I64;
+        STB_LANG_PARSER_ADVANCE();
+    )
     STB_LANG_IF_VALUE(TOKEN_ID, "char",
         typeinfo.type = AST_TYPE_CHAR;
         STB_LANG_PARSER_ADVANCE();
@@ -806,6 +816,7 @@ STB_LANG_TYPEINFO_SIZE(
     switch(typeinfo.type){
         case AST_TYPE_VOID: return 0;
         case AST_TYPE_INT: return 8;
+        case AST_TYPE_I32: return 8;
         case AST_TYPE_FLOAT: return 4;
         case AST_TYPE_CHAR: return 1;
         case AST_TYPE_STRING: return 8;
@@ -828,12 +839,26 @@ STB_LANG_TYPEINFO_SIZE(
 STB_LANG_NEW_TYPEINFO(
     STB_LANG_TYPEINFO_FIELDS(
         int decl_auto;
+        int casting;
     ),
     STB_LANG_TYPEINFO_INIT(
         checker->decl_auto = 0;
+        checker->casting = 1; // Default is implicit
+// 0: default, 1: implicit, 2: pointer, 3: pointer and implicit
     ),
     STB_LANG_TYPEINFO_SUFFIX(
         
+    ),
+    STB_LANG_TYPEINFO_CHECK_TYPES(
+        if (left->typeinfo.ptrnum == 0 && right->typeinfo.ptrnum == 0){
+            if (checker->casting == 1 || checker->casting == 3){
+                return; // Allow any implicit casting
+            }
+        }else if (left->typeinfo.ptrnum == right->typeinfo.ptrnum){
+            if (checker->casting == 2 || checker->casting == 3){
+                return; // Allow same pointer type casting (ptr<char> -> ptr<int>)
+            }
+        }
     ),
     STB_LANG_TYPEINFO_CASES(
         STB_LANG_TYPEINFO_CASE(AST_MODE,
@@ -842,6 +867,20 @@ STB_LANG_NEW_TYPEINFO(
                     checker->decl_auto = 1;
                 }else if (strcmp(ast->value, "declaration.var.explicit") == 0){
                     checker->decl_auto = 0;
+                }else if (strcmp(ast->value, "casting.strict") == 0){
+                    checker->casting = 0;
+                }else if (strcmp(ast->value, "casting.implicit") == 0){
+                    if (checker->casting == 2 || checker->casting == 3){
+                        checker->casting = 3;
+                    }else {
+                        checker->casting = 1;
+                    }
+                }else if (strcmp(ast->value, "casting.pointer") == 0){
+                    if (checker->casting == 1 || checker->casting == 3){
+                        checker->casting = 3;
+                    }else {
+                        checker->casting = 2;
+                    }
                 }
             }
         )
@@ -1256,6 +1295,8 @@ STB_LANG_ITERATE_LINKED_LIST(ast->left, _args, Lang_Parser_AST,
                     }
                 }
 
+                long origidx = (long)idx;
+
 
                 for (int i = paramslen - 1; i >= 0; i--) {
                     Lang_Parser_AST *param = params[i];
@@ -1274,7 +1315,7 @@ STB_LANG_ITERATE_LINKED_LIST(ast->left, _args, Lang_Parser_AST,
                         STB_LANG_IR_EMIT(IR_ASSIGN, STB_LANG_IR_OPERAND(IR_REG, strdup(str)), operand, NULL);
                     }
                 }
-                STB_LANG_IR_EMIT(IR_CALL, STB_LANG_IR_OPERAND(IR_VAR, funcname), NULL, NULL);
+                STB_LANG_IR_EMIT(IR_CALL, STB_LANG_IR_OPERAND(IR_VAR, funcname), NULL, NULL, .typeinfo=(Lang_TypeInfo_Typeinfo){.type = origidx});
             }else if (strcmp(ast->value, "ret") == 0){
                 STB_CONCAT(CUR_IR_NAME, _Operand) *operand = STB_LANG_IR_LHS(ast);
                 STB_LANG_IR_EMIT(IR_RET, NULL, operand, NULL);
@@ -1477,6 +1518,7 @@ STB_LANG_ITERATE_LINKED_LIST(ast->left, _args, Lang_Parser_AST,
                     idx++;
                 }
             }
+            long origidx = (long)idx;
 
 
             int vidx = 0;
@@ -1498,7 +1540,7 @@ STB_LANG_ITERATE_LINKED_LIST(ast->left, _args, Lang_Parser_AST,
                     STB_LANG_IR_EMIT(IR_ASSIGN, STB_LANG_IR_OPERAND(IR_REG, strdup(str)), operand, NULL, .typeinfo=param->typeinfo);
                 }
             }
-            STB_LANG_IR_EMIT(IR_CALL, STB_LANG_IR_OPERAND(IR_VAR, ast->value), NULL, NULL);
+            STB_LANG_IR_EMIT(IR_CALL, STB_LANG_IR_OPERAND(IR_VAR, ast->value), NULL, NULL, .typeinfo=(Lang_TypeInfo_Typeinfo){.type = origidx});
             return STB_LANG_IR_AS_TEMP(IR_REG, "v0")
         )
         STB_LANG_IR_CASE(AST_ADD,
@@ -1892,7 +1934,8 @@ STB_LANG_OPTIMIZER_CASES(
 #define CUR_REGALLOC_PREFIX lang_regalloc
 STB_LANG_NEW_REGALLOC(
     STB_LANG_REGALLOC_REGISTERS(
-        REG_X9, REG_X10, REG_X11, REG_X12, REG_X13, REG_X14, REG_X15
+        REG_X9, REG_X10, REG_X11, REG_X12, REG_X13, REG_X14, REG_X15,
+        REG_X19, REG_X20
     ),
     STB_LANG_REGALLOC_REGISTER_NAMES(
         STB_LANG_REGALLOC_REGISTER_MATCH(REG_X9, "x9", "w9", "w9", "w9")
@@ -1902,6 +1945,8 @@ STB_LANG_NEW_REGALLOC(
         STB_LANG_REGALLOC_REGISTER_MATCH(REG_X13, "x13", "w13", "w13", "w13")
         STB_LANG_REGALLOC_REGISTER_MATCH(REG_X14, "x14", "w14", "w14", "w14")
         STB_LANG_REGALLOC_REGISTER_MATCH(REG_X15, "x15", "w15", "w15", "w15")
+        STB_LANG_REGALLOC_REGISTER_MATCH(REG_X19, "x19", "w19", "w19", "w19")
+        STB_LANG_REGALLOC_REGISTER_MATCH(REG_X20, "x20", "w20", "w20", "w20")
 
     ),
     // STB_LANG_REGALLOC_REGISTERS(
@@ -2094,6 +2139,8 @@ int main(int argc, char **argv){
     Lang_IR *ir = lang_ir_init(checker);
     while (lang_ir_translate(ir) == 0){
     }
+
+    // fprintf(stderr, "A\n");
 
 
 
