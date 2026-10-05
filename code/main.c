@@ -1164,9 +1164,26 @@ STB_LANG_NEW_TYPEINFO(
             }else if (strcmp(instr, "addr") == 0 || strcmp(instr, "load") == 0 || strcmp(instr, "store") == 0){
                 STB_LANG_EXPAND_LHS();
                 STB_LANG_EXPAND_RHS();
-            }
+            }else if (strcmp(instr, "mov") == 0){
+                STB_LANG_EXPAND_LHS();
+                STB_LANG_EXPAND_RHS();
 
-            else if (strcmp(ast->value, "call")){
+            if (STB_LANG_OF_AST(ast->left, type) == AST_VAR){
+                STB_LANG_INFER_TYPE(STB_LANG_OF_AST(ast->left, value));
+                if (ast->typeinfo.type == -1 || ast->typeinfo.type == 0){
+                    if (checker->decl_auto == 0){
+                        STB_LANG_TYPEINFO_ERROR_MINOR_UNDERLYING(ast->offset, ast->file, "AssignError", "Variable \"%s\" has not been declared before being assigned", STB_LANG_OF_AST(ast->left, value));
+
+                        stb_lang_error_hint("if you're trying to access an IR register, use `.a0`", "mov .a0, 5");
+                        exit(-1);
+                    }else {
+                        ast->typeinfo = STB_LANG_RHS(ast)->typeinfo;
+                        STB_LANG_LHS(ast)->typeinfo = ast->typeinfo;
+                    }
+                }
+                STB_LANG_REGISTER_VARIABLE(STB_LANG_OF_AST(ast->left, value), ast->typeinfo)
+            }
+            }else if (strcmp(instr, "call")){
                 STB_LANG_EXPAND_LHS();
                 STB_LANG_EXPAND_RHS();
             }
