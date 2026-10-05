@@ -22,6 +22,9 @@
 #include "../libraries/regalloc/regalloc.h"
 #include "../libraries/optimizer/optimizer.h"
 
+
+dymarray_typenew(char, 300, 40); // For codegen
+
 char *HELP = "BirdSharp HELP Manual\n\t"
 "-help: creates this page\n";
 
@@ -1140,6 +1143,12 @@ STB_LANG_NEW_TYPEINFO(
 #define CUR_IR_PREFIX lang_ir
 
 STB_LANG_NEW_IR(
+    STB_LANG_IR_FIELDS(
+        int interpreted;
+    ),
+    STB_LANG_IR_INIT(
+        ir->interpreted = 0;
+    ),
     STB_LANG_IR_OPERANDS(
         IR_INT,
         IR_FLOAT,
@@ -1189,7 +1198,11 @@ STB_LANG_NEW_IR(
             // Skip
         )
         STB_LANG_IR_CASE(AST_MODE,
-            // Skip for now
+            if (ast->value != NULL){
+                if (strcmp(ast->value, "mode.interpreted") == 0){
+                    ir->interpreted = 1;
+                }
+            }
         )
         STB_LANG_IR_CASE(AST_FUNCDEF,
             STB_LANG_IR_EMIT(IR_FUNCDEF_BEGIN, STB_LANG_IR_OPERAND(IR_VAR, ast->value), NULL, NULL);
@@ -1794,16 +1807,18 @@ if (instr->left->type == IR_INT && instr->right->type == IR_INT){ \
 
 
 STB_LANG_NEW_OPTIMIZER(
-STB_LANG_OPTIMIZER_EXTRA(
+STB_LANG_OPTIMIZER_FIELDS(
     dymarray_Lang_Optimizer_Reg regs;
+    int interpreted;
 ),
-STB_LANG_OPTIMIZER_PREFIX(
+STB_LANG_OPTIMIZER_INIT(
     optimizer->regs = dymarray_Lang_Optimizer_Reg_new();
     for (int i=0; i<optimizer->regs.datalen; i++){
         optimizer->regs.data[i].operand = NULL;
         optimizer->regs.data[i].instr = NULL;
         optimizer->regs.data[i].uses = 0;
     };
+    optimizer->interpreted = ir->interpreted;
 ),
 STB_LANG_OPTIMIZER_OPERANDS(
     STB_LANG_OPTIMIZER_OPERAND(IR_REG,
@@ -1933,6 +1948,12 @@ STB_LANG_OPTIMIZER_CASES(
 #define CUR_REGALLOC_NAME Lang_RegAlloc
 #define CUR_REGALLOC_PREFIX lang_regalloc
 STB_LANG_NEW_REGALLOC(
+    STB_LANG_REGALLOC_FIELDS(
+        int interpreted;
+    ),
+    STB_LANG_REGALLOC_INIT(
+        regalloc->interpreted = optimizer->interpreted;
+    ),
     STB_LANG_REGALLOC_REGISTERS(
         REG_X9, REG_X10, REG_X11, REG_X12, REG_X13, REG_X14, REG_X15,
         REG_X19, REG_X20
@@ -2049,11 +2070,22 @@ STB_LANG_NEW_REGALLOC(
 )
 
 
-#define CUR_CODEGEN_NAME Lang_CodeGen
-#define CUR_CODEGEN_PREFIX lang_codegen
-
+#define CUR_CODEGEN_NAME Lang_CodeGen_Arm
+#define CUR_CODEGEN_PREFIX lang_codegen_arm
 
 #include "arm.c"
+
+#undef CUR_CODEGEN_NAME
+#undef CUR_CODEGEN_PREFIX
+#define CUR_CODEGEN_NAME Lang_CodeGen_Intrp
+#define CUR_CODEGEN_PREFIX lang_codegen_intrp
+
+#include "interpreted.c"
+
+#undef CUR_CODEGEN_NAME
+#undef CUR_CODEGEN_PREFIX
+#define CUR_CODEGEN_NAME Lang_CodeGen_Arm
+#define CUR_CODEGEN_PREFIX lang_codegen_arm
 
 
 // #include "x86_64.c"
@@ -2133,6 +2165,14 @@ int main(int argc, char **argv){
     Lang_TypeInfo *checker = lang_typeinfo_init(parser);
     while (lang_typeinfo_check(checker) == 0){
     }
+    STB_LANG_FIND_FUNCTION_UNDERLYING(
+        checker->root_scope, "main", 
+
+        (void)symnew;
+    )else {
+        stb_lang_error_major_global_underlying("EntryError", "No entry point could be found");
+        stb_lang_error_hint("add a `main` function", "int main(){\n\treturn 0;\n}");
+    }
 
 
 
@@ -2161,13 +2201,19 @@ int main(int argc, char **argv){
     }
 
 
-
-    Lang_CodeGen *gen = lang_codegen_init(regalloc);
-
-    while (lang_codegen_ir(gen) == 0){
+    if (regalloc->interpreted == 0){
+        Lang_CodeGen_Arm *gen = lang_codegen_arm_init(regalloc);
+        while (lang_codegen_arm_ir(gen) == 0){
+        }
+        STB_LANG_INVOKE_DRIVER(gen);
+    }else {
+        // Basic interpreter -- in testing
+        fprintf(stderr, "----- INTERPRETER -----\n");
+        Lang_CodeGen_Intrp *gen = lang_codegen_intrp_init(regalloc);
+        while (lang_codegen_intrp_ir(gen) == 0){
+        }
     }
 
-    STB_LANG_INVOKE_DRIVER(gen);
     // printf("-------- ASSEMBLY CODE --------\n");
     // printf("%s", gen->code.data);
     // printf("-------------------------------\n");

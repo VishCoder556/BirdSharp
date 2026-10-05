@@ -6,6 +6,10 @@
 #define STB_LANG_IR_INSTRS(...)  __VA_ARGS__
 #define STB_LANG_IR_OPERANDS(...)  __VA_ARGS__
 #define STB_LANG_IR_CASES(...) __VA_ARGS__
+
+#define STB_LANG_IR_FIELDS(...) __VA_ARGS__
+#define STB_LANG_IR_INIT(...) __VA_ARGS__
+
 #define STB_LANG_IR_CASE(typ, ...) else if (ast->type == typ){__VA_ARGS__;}
 
 #undef STB_LANG_INVOKE_TYPENEW
@@ -101,7 +105,7 @@ if (fil > ir->files.datalen){ \
 stb_lang_error_minor(ir->files.data[fil].name, ir->files.data[fil].contents, where, type, __VA_ARGS__);
 
 
-#define STB_LANG_NEW_IR(operands, types, cases) \
+#define STB_LANG_NEW_IR(fields, init, operands, types, cases) \
 typedef enum{operands}STB_CONCAT(CUR_IR_NAME, _OperandType); \
 typedef struct { \
     STB_CONCAT(CUR_IR_NAME, _OperandType) type; \
@@ -137,6 +141,7 @@ typedef struct { \
     int temp_number; \
     int label_count; \
     STB_CONCAT3(dymarray_, CUR_TOKENIZER_NAME, _File) files; \
+    fields; \
 }CUR_IR_NAME; \
 char *STB_CONCAT(CUR_IR_PREFIX, _make_temp_reg_string)(Lang_IR *ir) { \
     char *str = malloc(16); \
@@ -160,6 +165,7 @@ CUR_IR_NAME *STB_CONCAT(CUR_IR_PREFIX, _init)(CUR_TYPEINFO_NAME *checker){ \
     ir->files = checker->files; \
     ir->label_count = 0; \
     ir->temp_number = 0; \
+    init; \
     return ir; \
 } \
 long STB_CONCAT(CUR_IR_PREFIX, _symbol_new)(CUR_IR_NAME *ir, char *data, int length){ \

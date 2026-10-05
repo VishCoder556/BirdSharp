@@ -112,6 +112,8 @@ STB_LANG_EMIT_CODE("\tcset %s, %s\n", STB_LANG_REGISTER(instr->dest->phys, size)
 
 
 STB_LANG_NEW_CODEGEN(
+    STB_LANG_CODEGEN_FIELDS(),
+    STB_LANG_CODEGEN_INIT(),
     STB_LANG_CODEGEN_PREFIX(
         STB_LANG_EMIT_CODE("%s\n", ".global _main");
         STB_LANG_EMIT_CODE("%s\n", ".align 2");
@@ -125,6 +127,7 @@ STB_LANG_NEW_CODEGEN(
             STB_LANG_EMIT_CODE("mem_%d: .asciz \"%s\\0\"\n", idx, iter.data);
         )
     ),
+    STB_LANG_CODEGEN_FUNCS(),
     STB_LANG_CODEGEN_LIST(
         STB_LANG_CODEGEN_CASE(IR_FUNCDEF_BEGIN,
             STB_LANG_EMIT_CODE("_%s:\n", instr->dest->value);

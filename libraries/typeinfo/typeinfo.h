@@ -18,6 +18,7 @@
 #define STB_LANG_TYPEINFO_CASES(...) __VA_ARGS__
 
 #define STB_LANG_TYPEINFO_CHECK_TYPES(...) __VA_ARGS__
+#define STB_LANG_TYPEINFO_CUSTOM_ERROR(...) __VA_ARGS__
 
 
 #define STB_LANG_TYPEINFO_ERROR_MINOR(where, fil, type, ...) \
@@ -81,7 +82,7 @@ stb_lang_error_minor(checker->files.data[fil].name, checker->files.data[fil].con
 #define STB_LANG_GET_SCOPE(...) ((STB_CONCAT(CUR_TYPEINFO_NAME, _Scope)*)__VA_ARGS__)
 
 
-#define STB_LANG_FIND_SYMBOL(sym, nam, typ, root_scope, ...) do { \
+#define STB_LANG_FIND_SYMBOL(custerr, nam, typ, root_scope, ...) \
 STB_CONCAT3(dymarray_, CUR_TYPEINFO_NAME, _Symbol) *funcs = &(((STB_CONCAT(CUR_TYPEINFO_NAME, _Scope)*)root_scope)->symbols); \
 int found = 0; \
 for (int i=0; i<funcs->datalen; i++){ \
@@ -93,16 +94,30 @@ for (int i=0; i<funcs->datalen; i++){ \
         }; \
     } \
 } \
-if (found == 0){ \
-    stb_lang_error_major_global(sym"Error", "%s \"%s\" could not be found", sym, nam); \
-} \
-}while(0);
+if (found != 0){ \
+}
+
+#define STB_LANG_FIND_FUNCTION_UNDERLYING(root_scope, nam, ...) \
+STB_LANG_FIND_SYMBOL(custerr, nam, STB_LANG_SYMBOL_FUNCTION, root_scope, __VA_ARGS__)
+
+#define STB_LANG_FIND_SYMBOL_UNDERLYING(root_scope, nam, ...) \
+STB_LANG_FIND_SYMBOL(custerr, nam, STB_LANG_SYMBOL_DATA, root_scope, __VA_ARGS__)
+
 
 #define STB_LANG_FIND_FUNCTION(root_scope, nam, ...) \
-STB_LANG_FIND_SYMBOL("Function", nam, STB_LANG_SYMBOL_FUNCTION, root_scope, __VA_ARGS__);
+STB_LANG_FIND_FUNCTION_UNDERLYING(root_scope, nam, __VA_ARGS__) else { \
+    stb_lang_error_major_global("FunctionError", "Function \"%s\" could not be found", nam); \
+}
+
+
+#define STB_LANG_FIND_DATA_CUSTOM_ERROR( root_scope, nam, ...) \
+STB_LANG_FIND_SYMBOL_UNDERLYING(root_scope, nam, __VA_ARGS__) else { \
+    stb_lang_error_major_global("DataStructureError", "Structure \"%s\" could not be found", nam); \
+}
+
 
 #define STB_LANG_FIND_DATA(root_scope, nam, ...) \
-STB_LANG_FIND_SYMBOL("DataStructure", nam, STB_LANG_SYMBOL_DATA, root_scope, __VA_ARGS__);
+STB_LANG_FIND_SYMBOL(STB_LANG_TYPEINFO_CUSTOM_ERROR("DataStructureError", "Data Structure \"%s\" could not be found", nam), nam, STB_LANG_SYMBOL_DATA, root_scope, __VA_ARGS__);
 
 #define STB_LANG_ITERATE_LINKED_LIST(start, head, type, ...) \
 type *head = (type*)start; \

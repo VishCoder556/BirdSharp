@@ -3,11 +3,11 @@
 
 #define STB_LANG_OPTIMIZER_CASES(...) __VA_ARGS__
 #define STB_LANG_OPTIMIZER_CASE(item, ...) if (instr->type == item){__VA_ARGS__;}
-#define STB_LANG_OPTIMIZER_EXTRA(...) __VA_ARGS__
+#define STB_LANG_OPTIMIZER_FIELDS(...) __VA_ARGS__
 
 #define STB_LANG_OPTIMIZE(instr) STB_CONCAT(CUR_OPTIMIZER_PREFIX, _optimize_inner)(optimizer, instr)
 
-#define STB_LANG_OPTIMIZER_PREFIX(...) __VA_ARGS__
+#define STB_LANG_OPTIMIZER_INIT(...) __VA_ARGS__
 
 #define STB_LANG_OPTIMIZER_OPERANDS(...) __VA_ARGS__
 #define STB_LANG_OPTIMIZER_OPERAND(item, ...) if (operand->type == item){__VA_ARGS__;}

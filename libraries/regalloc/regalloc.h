@@ -11,6 +11,11 @@ if (fil > files.datalen){ \
 stb_lang_error_minor(files.data[fil].name, files.data[fil].contents, where, type, __VA_ARGS__);
 
 #define STB_LANG_REGALLOC_LIST(...) __VA_ARGS__
+
+
+#define STB_LANG_REGALLOC_FIELDS(...) __VA_ARGS__
+#define STB_LANG_REGALLOC_INIT(...) __VA_ARGS__
+
 #define STB_LANG_REGALLOC_CASE(typ, ...) else if( instr->type == typ ) {__VA_ARGS__;}
 #define STB_LANG_REGALLOC_2CASES(typ, typ2, ...) else if( instr->type == typ || instr->type == typ2 ) {__VA_ARGS__;}
 #define STB_LANG_REGALLOC_3CASES(typ, typ2, typ3, ...) else if( instr->type == typ || instr->type == typ2 || instr->type == typ3) {__VA_ARGS__;}
@@ -40,7 +45,7 @@ STB_LANG_REGALLOC_OPERAND_INNER(reg, dest); \
 STB_LANG_REGALLOC_OPERAND_INNER(reg, left); \
 STB_LANG_REGALLOC_OPERAND_INNER(reg, right);
 
-#define STB_LANG_NEW_REGALLOC(regtypes, matches, list, reg) \
+#define STB_LANG_NEW_REGALLOC(fields, init, regtypes, matches, list, reg) \
 typedef struct{ \
     char *val; \
 } STB_CONCAT(CUR_REGALLOC_NAME, _Register_BackTrack); \
@@ -69,6 +74,7 @@ typedef struct { \
     int cursor; \
     STB_CONCAT3(dymarray_, CUR_IR_NAME, _Symbol) symbols; \
     STB_CONCAT3(dymarray_, CUR_TOKENIZER_NAME, _File) files; \
+    fields; \
 }CUR_REGALLOC_NAME; \
 STB_CONCAT(CUR_REGALLOC_NAME, _Reg) STB_CONCAT(CUR_REGALLOC_PREFIX, _alloc_register)(CUR_REGALLOC_NAME *regalloc, int offset, int file){ \
     (void)file; \
@@ -142,7 +148,7 @@ STB_CONCAT(CUR_REGALLOC_NAME, _VirtualRegister) STB_CONCAT(CUR_REGALLOC_PREFIX, 
     STB_CONCAT(STB_CONCAT3(dymarray_, CUR_REGALLOC_NAME, _VirtualRegister), _add)(regalloc->virtual_regs, vreg); \
     return vreg; \
 }; \
-CUR_REGALLOC_NAME *STB_CONCAT(CUR_REGALLOC_PREFIX, _init)(CUR_OPTIMIZER_NAME *opt){ \
+CUR_REGALLOC_NAME *STB_CONCAT(CUR_REGALLOC_PREFIX, _init)(CUR_OPTIMIZER_NAME *optimizer){ \
     CUR_REGALLOC_NAME *regalloc = malloc(sizeof(*regalloc)); \
     regalloc->virtual_regs = malloc(sizeof(*regalloc->virtual_regs)); \
     if (!regalloc->virtual_regs) { \
@@ -150,15 +156,16 @@ CUR_REGALLOC_NAME *STB_CONCAT(CUR_REGALLOC_PREFIX, _init)(CUR_OPTIMIZER_NAME *op
         exit(-1); \
     } \
     *regalloc->virtual_regs = STB_CONCAT(STB_CONCAT3(dymarray_, CUR_REGALLOC_NAME, _VirtualRegister), _new)(); \
-    regalloc->root_scope = opt->root_scope; \
-    regalloc->file = opt->file; \
-    regalloc->files = opt->files; \
-    regalloc->instrs = opt->instrs; \
+    regalloc->root_scope = optimizer->root_scope; \
+    regalloc->file = optimizer->file; \
+    regalloc->files = optimizer->files; \
+    regalloc->instrs = optimizer->instrs; \
     regalloc->regs = STB_CONCAT(CUR_REGALLOC_PREFIX, _regs_init)(); \
     regalloc->backtrack = malloc(sizeof(*regalloc->backtrack)); \
     *regalloc->backtrack = STB_CONCAT(STB_CONCAT3(dymarray_, CUR_REGALLOC_NAME, _Register_BackTrack), _new)(); \
     regalloc->cursor = 0; \
-    regalloc->symbols = opt->symbols; \
+    regalloc->symbols = optimizer->symbols; \
+    init; \
     return regalloc; \
 } \
 char STB_CONCAT(CUR_REGALLOC_PREFIX, _ir)(CUR_REGALLOC_NAME *regalloc, STB_CONCAT(CUR_IR_NAME, _Instr) *instr){ \

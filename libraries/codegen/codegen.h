@@ -6,7 +6,12 @@
 #include <stdarg.h>
 #include <stdbool.h>
 
+
+#define STB_LANG_CODEGEN_FIELDS(...) __VA_ARGS__
+#define STB_LANG_CODEGEN_INIT(...) __VA_ARGS__
+
 #define STB_LANG_CODEGEN_LIST(...) __VA_ARGS__
+#define STB_LANG_CODEGEN_FUNCS(...) __VA_ARGS__
 #define STB_LANG_CODEGEN_CASE(typ, ...) else if( instr->type == typ ) {__VA_ARGS__;}
 #define STB_LANG_CODEGEN_2CASES(typ, typ2, ...) else if( instr->type == typ || instr->type == typ2 ) {__VA_ARGS__;}
 
@@ -53,8 +58,7 @@ if (fil > gen->files.datalen){ \
 } \
 stb_lang_error_minor(gen->files.data[fil].name, gen->files.data[fil].contents, where, type, __VA_ARGS__);
 
-#define STB_LANG_NEW_CODEGEN(prefix, suffix, list) \
-dymarray_typenew(char, 300, 40); \
+#define STB_LANG_NEW_CODEGEN(fields, init, prefix, suffix, funcs, list) \
 typedef struct { \
     STB_CONCAT3(dymarray_, CUR_IR_NAME, _Instr) instrs; \
     int cursor; \
@@ -62,11 +66,11 @@ typedef struct { \
     int function_offset; \
     STB_CONCAT(CUR_TYPEINFO_NAME, _ScopeL) root_scope; \
     STB_CONCAT(CUR_TYPEINFO_NAME, _ScopeL) current_scope; \
-    STB_CONCAT3(dymarray_, CUR_REGALLOC_NAME, _Register) *regs; \
     STB_CONCAT3(dymarray_, CUR_REGALLOC_NAME, _VirtualRegister) *virtual_regs; \
     STB_CONCAT(CUR_TOKENIZER_NAME, _File) file; \
     STB_CONCAT3(dymarray_, CUR_TOKENIZER_NAME, _File) files; \
     STB_CONCAT3(dymarray_, CUR_IR_NAME, _Symbol) symbols; \
+    fields; \
 }CUR_CODEGEN_NAME; \
 STB_LANG_SIZE_OFFSET(); \
 void STB_CONCAT(CUR_CODEGEN_PREFIX, _add_text)(CUR_CODEGEN_NAME *gen, int offset, int file, char *str, ...){ \
@@ -96,6 +100,7 @@ void STB_CONCAT(CUR_CODEGEN_PREFIX, _add_text)(CUR_CODEGEN_NAME *gen, int offset
     gen->code.datalen += len; \
     ((char*)gen->code.data)[gen->code.datalen] = '\0'; \
 } \
+funcs; \
 CUR_CODEGEN_NAME *STB_CONCAT(CUR_CODEGEN_PREFIX, _init)(CUR_REGALLOC_NAME *regalloc){ \
     CUR_CODEGEN_NAME *gen = malloc(sizeof(*gen)); \
     gen->code = dymarray_char_new(); \
@@ -104,12 +109,13 @@ CUR_CODEGEN_NAME *STB_CONCAT(CUR_CODEGEN_PREFIX, _init)(CUR_REGALLOC_NAME *regal
     gen->function_offset = 0; \
     gen->root_scope = regalloc->root_scope; \
     gen->current_scope = gen->root_scope; \
-    gen->regs = regalloc->regs; \
     gen->virtual_regs = regalloc->virtual_regs; \
     gen->file = regalloc->file; \
     gen->files = regalloc->files; \
     gen->symbols = regalloc->symbols; \
     STB_CONCAT(CUR_IR_NAME, _Instr) *instr = (gen->instrs.data + gen->cursor); \
+    (void)instr; \
+    init; \
  \
     prefix; \
     return gen; \
@@ -123,6 +129,8 @@ char STB_CONCAT(CUR_CODEGEN_PREFIX, _gen)(CUR_CODEGEN_NAME *gen, STB_CONCAT(CUR_
 }; \
 char STB_CONCAT(CUR_CODEGEN_PREFIX, _ir)(CUR_CODEGEN_NAME *gen){ \
     STB_CONCAT(CUR_IR_NAME, _Instr) *instr = (gen->instrs.data + gen->cursor); \
+    (void)instr; \
+    (void)gen; \
     if (gen->instrs.datalen == 0){return -1;} \
     if (STB_CONCAT(CUR_CODEGEN_PREFIX, _gen)(gen, instr) == -1){return -1;}; \
     if (gen->cursor >= gen->instrs.datalen - 1){ \

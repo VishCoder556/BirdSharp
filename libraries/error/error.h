@@ -5,20 +5,28 @@
 #include <stdlib.h>
 #include <stdarg.h>
 
-void stb_lang_error_major_global(char *type, char *fmt, ...);
+void stb_lang_error_major_global_underlying(char *type, char *fmt, ...);
+void stb_lang_error_minor_underlying(char *file, char *contents, int offset, char *type, char *fmt, ...);
 
+
+
+#define stb_lang_error_minor(...) \
+stb_lang_error_minor_underlying(__VA_ARGS__); exit(-1);
+
+#define stb_lang_error_major_global(...) \
+stb_lang_error_major_global_underlying(__VA_ARGS__); exit(-1);
 
 
 #ifdef STB_LANG_ERROR_IMPLEMENTATION
 
-void stb_lang_error_major_global(char *type, char *fmt, ...){
+void stb_lang_error_major_global_underlying(char *type, char *fmt, ...){
     va_list args;
     va_start(args, fmt);
 
     int addcap = 256;
     char *add = malloc(addcap);
     if (add == NULL){
-        printf("\x1b[1;31m%s\x1b[0m: %s\n", "ErrorGeneratorError", "Not enough space to genereate errors");
+        printf("\x1b[1;31m%s\x1b[0m: %s\n", "ErrorGeneratorError", "Not enough space to generate errors");
         exit(-1);
     }
 
@@ -28,7 +36,7 @@ void stb_lang_error_major_global(char *type, char *fmt, ...){
         addcap = n;
         add = realloc(add, addcap);
         if (add == NULL){
-            printf("\x1b[1;31m%s\x1b[0m: %s\n", "ErrorGeneratorError", "Not enough space to genereate errors");
+            printf("\x1b[1;31m%s\x1b[0m: %s\n", "ErrorGeneratorError", "Not enough space to generate errors");
             exit(-1);
         }
     }
@@ -36,10 +44,29 @@ void stb_lang_error_major_global(char *type, char *fmt, ...){
 
 
     printf("\x1b[1;31m%s\x1b[0m: %s\n", type, add);
-    exit(-1);
 }
 
-void stb_lang_error_minor(char *file, char *contents, int offset, char *type, char *fmt, ...){
+void stb_lang_error_hint(char *type, char *elaboration){
+    printf("\x1b[38;5;208mnote\x1b[0m: %s\n", type);
+    int linen = 0;
+    printf(" %d | ", linen++);
+    for (int i=0; i<(int)strlen(elaboration); i++){
+        if (elaboration[i] == '\n'){
+            printf("\n %d | ", linen++);
+        }else {
+            putchar(elaboration[i]);
+        }
+    }
+    printf("\n");
+}
+
+/*
+code/main.c:2134:32: note: to match this '{'
+ 2134 | int main(int argc, char **argv){
+      |                                ^
+*/
+
+void stb_lang_error_minor_underlying(char *file, char *contents, int offset, char *type, char *fmt, ...){
     va_list args;
     va_start(args, fmt);
 
@@ -84,7 +111,6 @@ void stb_lang_error_minor(char *file, char *contents, int offset, char *type, ch
 
     col = (offset - col - 1);
 
-
     int newrow = row;
     int count = 0;
     do {
@@ -101,8 +127,9 @@ void stb_lang_error_minor(char *file, char *contents, int offset, char *type, ch
     printf("^");
     printf("\n");
     free(oldline);
-    exit(-1);
 }
+
+
 
 #endif
 
