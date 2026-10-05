@@ -6,7 +6,7 @@ int main(){
     a[1] = 0
     a[2] = 0
 #!ir.inline {
-    mov a[2], 5
+    mov deref(a + 16), 5
 }
     printf("%d, %d, %d\n", a[0], a[1], a[2]);
     return 0;

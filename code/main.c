@@ -67,6 +67,40 @@ STB_LANG_NEW_TOKENIZER(
         TOKEN_BSHR,
         TOKEN_BSHL
     ),
+    STB_LANG_TOKEN_REPR(
+        case TOKEN_LP: return "(";
+        case TOKEN_RP: return ")";
+        case TOKEN_LB: return "{";
+        case TOKEN_RB: return "}";
+        case TOKEN_LSB: return "[";
+        case TOKEN_RSB: return "]";
+        case TOKEN_ID: return "identifier";
+        case TOKEN_NUM: return "number";
+        case TOKEN_COMMA: return ",";
+        case TOKEN_EQ: return "=";
+        case TOKEN_ADD: return "+";
+        case TOKEN_SUB: return "-";
+        case TOKEN_MUL: return "*";
+        case TOKEN_DIV: return "/";
+        case TOKEN_MODULO: return "%";
+        case TOKEN_STRING: return "string";
+        case TOKEN_GT: return ">";
+        case TOKEN_GTE: return ">=";
+        case TOKEN_LT: return "<";
+        case TOKEN_LTE: return "<=";
+        case TOKEN_DEQ: return "==";
+        case TOKEN_NEQ: return "!=";
+        case TOKEN_NOT: return "!";
+        case TOKEN_AND: return "&&";
+        case TOKEN_BAND: return "&";
+        case TOKEN_OR: return "||";
+        case TOKEN_BOR: return "|";
+        case TOKEN_CARET: return "^";
+        case TOKEN_DOT: return ".";
+        case TOKEN_HASH: return "#";
+        case TOKEN_BSHR: return ">>";
+        case TOKEN_BSHL: return "<<";
+    ),
     STB_LANG_SIMPLE_CASES(
         STB_LANG_TOKEN_CHAR('(', TOKEN_LP)
         STB_LANG_TOKEN_CHAR(')', TOKEN_RP)
@@ -621,6 +655,9 @@ not_funcall:
                 STB_LANG_OPERAND(assign, lang_parser_parse_expr(parser, 0));
                 return STB_LANG_AST(.type=AST_DECL, .typeinfo=typeinfo, .value = varia.value, .left=NULL, .middle=NULL, .right=STB_LANG_AS_AST(assign));
             ) STB_LANG_ELSE(
+                STB_LANG_IF_TOKEN(TOKEN_LSB,
+                    STB_LANG_PARSER_ERROR_MINOR(token.offset, token.file, "SyntaxError", "Square bracket at wrong place in declaration (try `int[3] x`)"); \
+                )
                 if (typeinfo.type != -1){
                     return STB_LANG_AST(.type=AST_DECL, .typeinfo=typeinfo, .value = varia.value, .left=NULL, .middle=NULL, .right=NULL);
                 }
@@ -631,6 +668,12 @@ not_funcall:
     }
 ),
 STB_LANG_PARSE_EXPR(
+    STB_LANG_MATCH_TOKEN(TOKEN_BAND,  
+        STB_LANG_PARSER_ERROR_MINOR(token.offset, token.file, "SyntaxError", "Wrong operator for referencing (use `ref(x)` instead)"); \
+    )
+    STB_LANG_MATCH_TOKEN(TOKEN_MUL,  
+        STB_LANG_PARSER_ERROR_MINOR(token.offset, token.file, "SyntaxError", "Wrong operator for dereferencing (use `deref(x)` instead)"); \
+    )
     STB_LANG_MATCH_TOKEN(TOKEN_DOT,  
         STB_LANG_PARSER_ADVANCE();
         left = STB_LANG_AST_LITERAL(AST_IR_TEMP, token);
@@ -1057,7 +1100,7 @@ STB_LANG_NEW_TYPEINFO(
 
             Lang_TypeInfo_Typeinfo typinf = STB_LANG_OF_AST(ast->left, typeinfo);
             if (typinf.ptrnum == 0 && typinf.type != AST_TYPE_ARRAY){
-                STB_LANG_TYPEINFO_ERROR_MINOR(ast->offset, ast->file, "DerefError", "Could not dereference anything that's not a pointer or array");
+                STB_LANG_TYPEINFO_ERROR_MINOR(ast->offset, ast->file, "DerefError", "Could not dereference anything that's not a pointer");
             }else if (typinf.type == AST_TYPE_ARRAY){
                 if (typinf.data.array.elem_type != NULL){
                     ast->typeinfo = *(Lang_TypeInfo_Typeinfo*)(typinf.data.array.elem_type);
@@ -1267,12 +1310,28 @@ STB_LANG_ITERATE_LINKED_LIST(ast->left, _args, Lang_Parser_AST,
                 STB_LANG_IR_NEW_TEMP(secure_addr_reg);
                 // printf("%d\n", STB_LANG_LOOKUP_SIZE(ir->root_scope, &ast->typeinfo));
 
-                STB_CONCAT(CUR_IR_NAME, _Operand) *addr = STB_LANG_IR_LHS_EXTRA(STB_LANG_LHS(ast), 1);
-                STB_LANG_IR_EMIT(IR_ASSIGN, STB_LANG_IR_OPERAND(IR_REG, secure_addr_reg), addr, NULL);
-                
-                STB_CONCAT(CUR_IR_NAME, _Operand) *value = STB_LANG_IR_RHS(ast);
-                
-                STB_LANG_IR_EMIT(IR_STORE, STB_LANG_IR_OPERAND(IR_REG, secure_addr_reg), value, NULL, .typeinfo=ast->typeinfo);
+                Lang_Parser_AST *ll = STB_LANG_LHS(STB_LANG_LHS(ast));
+                if (STB_LANG_LHS(STB_LANG_LHS(ast))->typeinfo.ptrnum != 0){
+                    Lang_IR_Operand *op = STB_LANG_IR(ll);
+                    STB_LANG_IR_EMIT(IR_ASSIGN, STB_LANG_IR_OPERAND(IR_REG, secure_addr_reg), op, NULL);
+                }else if (ll->type == AST_VAR){
+                    Lang_IR_Operand *op = STB_LANG_IR(ll);
+                    STB_LANG_IR_EMIT(IR_ADDR, STB_LANG_IR_OPERAND(IR_REG, secure_addr_reg), op, NULL);
+                }else if (ll->type == AST_ADD){
+                    Lang_IR_Operand *op = STB_LANG_IR_LHS(ll);
+                    Lang_IR_Operand *opl = STB_LANG_IR_RHS(ll);
+                    STB_LANG_IR_EMIT(IR_ADDR, STB_LANG_IR_OPERAND(IR_REG, secure_addr_reg), op, NULL);
+                    STB_LANG_IR_EMIT(IR_ADD, STB_LANG_IR_OPERAND(IR_REG, secure_addr_reg), STB_LANG_IR_OPERAND(IR_REG, secure_addr_reg), opl);
+                }else if (ll->type == AST_SUB){
+                    Lang_IR_Operand *op = STB_LANG_IR_LHS(ll);
+                    Lang_IR_Operand *opl = STB_LANG_IR_RHS(ll);
+                    STB_LANG_IR_EMIT(IR_ADDR, STB_LANG_IR_OPERAND(IR_REG, secure_addr_reg), op, NULL);
+                    STB_LANG_IR_EMIT(IR_SUB, STB_LANG_IR_OPERAND(IR_REG, secure_addr_reg), STB_LANG_IR_OPERAND(IR_REG, secure_addr_reg), opl);
+                }else {
+                    STB_LANG_IR_ERROR_MINOR_UNDERLYING(ast->offset, ast->file, "DerefError", "Deref type not supported");
+                    stb_lang_error_hint("These are the only supported types of derefs:", "deref(a)\nderef(a + ...)\nderef(a - ...)");
+                };
+                STB_LANG_IR_EMIT(IR_STORE, STB_LANG_IR_OPERAND(IR_REG, secure_addr_reg), STB_LANG_IR_RHS(ast), NULL, .typeinfo=ast->typeinfo);
             }else if (STB_LANG_LHS(ast)->type == AST_INDEX){
                 STB_LANG_IR_NEW_TEMP(addr_reg);
                 STB_LANG_IR_NEW_TEMP(offset_reg);
@@ -1282,7 +1341,7 @@ STB_LANG_ITERATE_LINKED_LIST(ast->left, _args, Lang_Parser_AST,
                 // a[0] = 5
                 STB_LANG_IR_EMIT(IR_MUL, STB_LANG_IR_OPERAND(IR_REG, offset_reg), STB_LANG_IR_RHS(STB_LANG_LHS(ast)), STB_LANG_IR_OPERAND(IR_INT, strdup(str)));
                 if (STB_LANG_LHS(STB_LANG_LHS(ast))->typeinfo.ptrnum == 0){
-                    STB_LANG_IR_EMIT(IR_ASSIGN, STB_LANG_IR_OPERAND(IR_REG, addr_reg), STB_LANG_IR_LHS(STB_LANG_LHS(ast)), NULL);
+                    STB_LANG_IR_EMIT(IR_ADDR, STB_LANG_IR_OPERAND(IR_REG, addr_reg), STB_LANG_IR_LHS(STB_LANG_LHS(ast)), NULL);
                 }else {
                     STB_LANG_IR_EMIT(IR_ASSIGN, STB_LANG_IR_OPERAND(IR_REG, addr_reg), STB_LANG_IR_LHS(STB_LANG_LHS(ast)), NULL);
                 }
@@ -1437,19 +1496,28 @@ STB_LANG_ITERATE_LINKED_LIST(ast->left, _args, Lang_Parser_AST,
             }else if (STB_LANG_LHS(ast)->type == AST_DEREF) {
                 STB_LANG_IR_NEW_TEMP(secure_addr_reg);
 
-                // if (STB_LANG_LHS(STB_LANG_LHS(ast))->typeinfo.ptrnum == 0){
-                STB_LANG_IR_EMIT(IR_ASSIGN, STB_LANG_IR_OPERAND(IR_REG, secure_addr_reg), STB_LANG_IR_LHS(STB_LANG_LHS(ast)), NULL);
-                // }else {
-                //     STB_LANG_IR_EMIT(IR_ASSIGN, STB_LANG_IR_OPERAND(IR_REG, secure_addr_reg), STB_LANG_IR_LHS(STB_LANG_LHS(ast)), NULL);
-                // }
+                Lang_Parser_AST *ll = STB_LANG_LHS(STB_LANG_LHS(ast));
+                if (STB_LANG_LHS(STB_LANG_LHS(ast))->typeinfo.ptrnum != 0){
+                    Lang_IR_Operand *op = STB_LANG_IR(ll);
+                    STB_LANG_IR_EMIT(IR_ASSIGN, STB_LANG_IR_OPERAND(IR_REG, secure_addr_reg), op, NULL);
+                }else if (ll->type == AST_VAR){
+                    Lang_IR_Operand *op = STB_LANG_IR(ll);
+                    STB_LANG_IR_EMIT(IR_ADDR, STB_LANG_IR_OPERAND(IR_REG, secure_addr_reg), op, NULL);
+                }else if (ll->type == AST_ADD){
+                    Lang_IR_Operand *op = STB_LANG_IR_LHS(ll);
+                    Lang_IR_Operand *opl = STB_LANG_IR_RHS(ll);
+                    STB_LANG_IR_EMIT(IR_ADDR, STB_LANG_IR_OPERAND(IR_REG, secure_addr_reg), op, NULL);
+                    STB_LANG_IR_EMIT(IR_ADD, STB_LANG_IR_OPERAND(IR_REG, secure_addr_reg), STB_LANG_IR_OPERAND(IR_REG, secure_addr_reg), opl);
+                }else if (ll->type == AST_SUB){
+                    Lang_IR_Operand *op = STB_LANG_IR_LHS(ll);
+                    Lang_IR_Operand *opl = STB_LANG_IR_RHS(ll);
+                    STB_LANG_IR_EMIT(IR_ADDR, STB_LANG_IR_OPERAND(IR_REG, secure_addr_reg), op, NULL);
+                    STB_LANG_IR_EMIT(IR_SUB, STB_LANG_IR_OPERAND(IR_REG, secure_addr_reg), STB_LANG_IR_OPERAND(IR_REG, secure_addr_reg), opl);
+                }else {
+                    STB_LANG_IR_ERROR_MINOR_UNDERLYING(ast->offset, ast->file, "DerefError", "Deref type not supported");
+                    stb_lang_error_hint("These are the only supported types of derefs:", "deref(a)\nderef(a + ...)\nderef(a - ...)");
+                };
                 STB_LANG_IR_EMIT(IR_STORE, STB_LANG_IR_OPERAND(IR_REG, secure_addr_reg), STB_LANG_IR_RHS(ast), NULL, .typeinfo=ast->typeinfo);
-
-                // STB_CONCAT(CUR_IR_NAME, _Operand) *addr = STB_LANG_IR_LHS(STB_LANG_LHS(ast));
-                // STB_LANG_IR_EMIT(IR_ASSIGN, STB_LANG_IR_OPERAND(IR_REG, secure_addr_reg), addr, NULL);
-                // 
-                // STB_CONCAT(CUR_IR_NAME, _Operand) *value = STB_LANG_IR_RHS(ast);
-                // 
-                // STB_LANG_IR_EMIT(IR_STORE, STB_LANG_IR_OPERAND(IR_REG, secure_addr_reg), value, NULL, .typeinfo=STB_LANG_LHS(ast)->typeinfo);
             }else {
                 STB_LANG_IR_EMIT(IR_STORE, STB_LANG_IR_LHS_EXTRA(ast, 1), STB_LANG_IR_RHS(ast), NULL, .typeinfo=STB_LANG_LHS(ast)->typeinfo);
             }

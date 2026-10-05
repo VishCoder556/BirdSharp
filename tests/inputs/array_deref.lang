@@ -1,0 +1,8 @@
+void printf(string fmt, ...);
+
+int main(){
+    int[3] a
+    deref(a) = 5
+    printf("%d\n", a[0]);
+    return 0;
+}

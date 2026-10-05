@@ -27,6 +27,18 @@ if (fil > checker->files.datalen){ \
 } \
 stb_lang_error_minor(checker->files.data[fil].name, checker->files.data[fil].contents, where, type, __VA_ARGS__);
 
+#define STB_LANG_TYPEINFO_ERROR_MINOR_UNDERLYING(where, fil, type, ...) \
+if (fil > checker->files.datalen){ \
+    stb_lang_error_minor(checker->file.name, checker->file.contents, where, "TypeinfoError", "Failure to generate error"); \
+} \
+stb_lang_error_minor_underlying(checker->files.data[fil].name, checker->files.data[fil].contents, where, type, __VA_ARGS__);
+
+#define STB_LANG_TYPEINFO_NOTE_MINOR(where, fil, ...) \
+if (fil > checker->files.datalen){ \
+    stb_lang_error_minor(checker->file.name, checker->file.contents, where, "TypeinfoError", "Failure to generate error"); \
+} \
+stb_lang_note_minor(checker->files.data[fil].name, checker->files.data[fil].contents, where, __VA_ARGS__);
+
 
 #define STB_LANG_TYPEINFO_CASE(typ, ...) else if(ast->type == typ){__VA_ARGS__;}
 #define STB_LANG_TYPEINFO_2CASES(typ, typ2, ...) else if(ast->type == typ || ast->type == typ2){__VA_ARGS__;}
@@ -56,6 +68,7 @@ stb_lang_error_minor(checker->files.data[fil].name, checker->files.data[fil].con
 #define STB_LANG_ADD_FUNCTION(nam, ...) do { \
     STB_CONCAT(CUR_TYPEINFO_NAME, _Symbol) symnew = (STB_CONCAT(CUR_TYPEINFO_NAME, _Symbol)) {.name=nam, .kind = STB_LANG_SYMBOL_FUNCTION}; \
     symnew.data.function.args = malloc(sizeof(STB_CONCAT3(dymarray_, CUR_TYPEINFO_NAME, _Typeinfo))); \
+    symnew.data.function.def = (struct STB_CONCAT(CUR_PARSER_NAME, _AST)*)ast; \
     *symnew.data.function.args = STB_CONCAT(STB_CONCAT3(dymarray_, CUR_TYPEINFO_NAME, _Typeinfo), _new)(); \
     __VA_ARGS__; \
     STB_CONCAT(STB_CONCAT3(dymarray_, CUR_TYPEINFO_NAME, _Symbol), _add)(&(((STB_CONCAT(CUR_TYPEINFO_NAME, _Scope)*)checker->root_scope)->symbols), symnew); \
@@ -106,13 +119,13 @@ STB_LANG_FIND_SYMBOL(custerr, nam, STB_LANG_SYMBOL_DATA, root_scope, __VA_ARGS__
 
 #define STB_LANG_FIND_FUNCTION(root_scope, nam, ...) \
 STB_LANG_FIND_FUNCTION_UNDERLYING(root_scope, nam, __VA_ARGS__) else { \
-    stb_lang_error_major_global("FunctionError", "Function \"%s\" could not be found", nam); \
+    STB_LANG_TYPEINFO_ERROR_MINOR(ast->offset, ast->file, "FunctionError", "Function \"%s\" could not be found", nam); \
 }
 
 
 #define STB_LANG_FIND_DATA_CUSTOM_ERROR( root_scope, nam, ...) \
 STB_LANG_FIND_SYMBOL_UNDERLYING(root_scope, nam, __VA_ARGS__) else { \
-    stb_lang_error_major_global("DataStructureError", "Structure \"%s\" could not be found", nam); \
+    STB_LANG_TYPEINFO_ERROR_MINOR(ast->offset, ast->file, "DataStructureError", "Structure \"%s\" could not be found", nam); \
 }
 
 
@@ -170,13 +183,19 @@ for (int i=0; i<typeinfos->datalen; i++){ \
         break; \
     } \
     if (param == NULL){ \
-        STB_LANG_TYPEINFO_ERROR_MINOR(ast->offset, ast->file, "FunctionError", "Too few function arguments provided to function \"%s\"", symnew.name); \
+        STB_LANG_TYPEINFO_ERROR_MINOR_UNDERLYING(ast->offset, ast->file, "FunctionError", "Too few function arguments provided to function \"%s\"", symnew.name); \
+        STB_CONCAT(CUR_PARSER_NAME, _AST) *definition = (STB_CONCAT(CUR_PARSER_NAME, _AST)*)symnew.data.function.def; \
+        STB_LANG_TYPEINFO_NOTE_MINOR(definition->offset, definition->file, "Function \"%s\" defined here", symnew.name); \
+        exit(-1); \
     } \
     STB_LANG_EXPECT_TYPEINFO_EQ(param->typeinfo, typeinfos->data[i], param->offset, param->file, "Argument passed with invalid type"); \
     param = (STB_CONCAT(CUR_PARSER_NAME, _AST)*)param->next; \
 } \
 if (param != NULL){ \
-    STB_LANG_TYPEINFO_ERROR_MINOR(ast->offset, ast->file, "FunctionError", "Too many function arguments provided to function \"%s\"", symnew.name); \
+    STB_LANG_TYPEINFO_ERROR_MINOR_UNDERLYING(ast->offset, ast->file, "FunctionError", "Too many function arguments provided to function \"%s\"", symnew.name); \
+    STB_CONCAT(CUR_PARSER_NAME, _AST) *definition = (STB_CONCAT(CUR_PARSER_NAME, _AST)*)symnew.data.function.def; \
+    STB_LANG_TYPEINFO_NOTE_MINOR(definition->offset, definition->file, "Function \"%s\" defined here", symnew.name); \
+    exit(-1); \
 } \
 escape: \
 

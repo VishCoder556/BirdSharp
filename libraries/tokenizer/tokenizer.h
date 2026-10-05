@@ -149,10 +149,12 @@ no_comment:;
 #define STB_LANG_SKIP(ch) if (c==ch){goto skip;}
 #define STB_LANG_TOKENS(...) __VA_ARGS__
 
+#define STB_LANG_TOKEN_REPR(...) __VA_ARGS__
+
 // For later on
 #define STB_LANG_INVOKE_TYPENEW(tkn) dymarray_typenew(tkn, 20, 10)
 
-#define STB_LANG_NEW_TOKENIZER(atokens, _cases, ...) \
+#define STB_LANG_NEW_TOKENIZER(atokens, repr, _cases, ...) \
 typedef enum { \
     atokens \
 }STB_CONCAT(CUR_TOKENIZER_NAME, _TokenType); \
@@ -175,6 +177,12 @@ typedef struct { \
     int cursor; \
     STB_CONCAT3(dymarray_, CUR_TOKENIZER_NAME, _Token) tokens; \
 }CUR_TOKENIZER_NAME; \
+char *STB_CONCAT(CUR_TOKENIZER_PREFIX, _get_token_value)(int tokentype){ \
+    switch (tokentype){ \
+        repr; \
+    } \
+    return "(unknown token)"; \
+} \
 STB_CONCAT(CUR_TOKENIZER_NAME, _File) STB_CONCAT(CUR_TOKENIZER_PREFIX, _file_init)(char *name){ \
     STB_CONCAT(CUR_TOKENIZER_NAME, _File) fl = (STB_CONCAT(CUR_TOKENIZER_NAME, _File)){0}; \
     FILE *file = fopen(name, "rb"); \

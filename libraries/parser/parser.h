@@ -71,13 +71,13 @@ break; \
 // STB_LANG_PARSER_EXPECT: yes, the error messages are bland and weird, this is a TODO for later
 #define STB_LANG_PARSER_EXPECT(typ) \
 if (token.type != typ){ \
-    STB_LANG_PARSER_ERROR_MINOR(token.offset, token.file, "ExpectError", "Expected token '%d', got '%d'", typ, token.type); \
+    STB_LANG_PARSER_ERROR_MINOR(token.offset, token.file, "ExpectError", "Expected token '%s', got '%s'", STB_CONCAT(CUR_TOKENIZER_PREFIX, _get_token_value)(typ), STB_CONCAT(CUR_TOKENIZER_PREFIX, _get_token_value)(token.type)); \
 }else {STB_LANG_PARSER_ADVANCE();}
 
 
 #define STB_LANG_PARSER_EXPECT_IN_PLACE(typ) \
 if (token.type != typ){ \
-    STB_LANG_PARSER_ERROR_MINOR(token.offset, token.file, "ExpectError", "Expected token '%d', got '%d'", typ, token.type); \
+    STB_LANG_PARSER_ERROR_MINOR(token.offset, token.file, "ExpectError", "Expected token '%s', got '%s'", STB_CONCAT(CUR_TOKENIZER_PREFIX, _get_token_value)(typ), STB_CONCAT(CUR_TOKENIZER_PREFIX, _get_token_value)(token.type)); \
 }
 
 #define STB_LANG_TOKEN_MATCH_AST(tok, ast) else if (op_token.type == tok){ \
@@ -91,6 +91,7 @@ if (token.type != typ){ \
     parent->right = (struct STB_CONCAT(CUR_PARSER_NAME, _AST)*)right; \
     parent->next = NULL; \
     parent->offset = offset; \
+    parent->file = left->file; \
  \
     left = parent; \
 }
@@ -330,6 +331,7 @@ typedef struct { \
         }variable; \
         struct { \
             STB_CONCAT3(dymarray_, CUR_TYPEINFO_NAME, _Typeinfo) *args; \
+            struct STB_CONCAT(CUR_PARSER_NAME, _AST) *def; \
         }function; \
         struct { \
             struct STB_CONCAT(CUR_PARSER_NAME, _AST) *structdef; \

@@ -45,7 +45,7 @@ if (right != NULL) { \
         } \
     }else if(right->type == IR_VAR){ \
         int newoffset = STB_CONCAT(CUR_CODEGEN_PREFIX, _get_offset_from_var)(gen, right->value); \
-        if (right->extr == 0){ \
+        if (right->extr == 0 || instr->typeinfo.type == AST_TYPE_ARRAY){ \
             if (newoffset == 0){ \
                 STB_LANG_EMIT_CODE("\tldr %s, [sp]\n", leftr); \
             }else { \
@@ -171,6 +171,26 @@ STB_LANG_NEW_CODEGEN(
                 } else {
                     STB_LANG_EMIT_CODE("\tadd %s, sp, #%d\n", dest, newoffset);
                 }
+            }else {
+                char string[32];
+                if (instr->dest->value[0] == 'a'){
+                    snprintf(string, 32, "x%d", atoi(instr->dest->value + 1));
+                    STB_LANG_ARM_MOVE(8, instr->left, string)
+                    int offset = (atoi(instr->dest->value+1) + 1) * 16;
+                    STB_LANG_EMIT_CODE("\tstr %s, [sp, #-%d]\n", string, offset); // New bug fix: dump args to stack
+                }else if (instr->dest->value[0] == 't'){
+                    snprintf(string, 32, "%s", instr->dest->value);
+                    STB_LANG_ARM_MOVE(8, instr->left, string)
+                }else if (instr->dest->value[0] == '.'){
+                    int n = atoi(instr->dest->value + 4);
+                    // STB_LANG_EMIT_CODE("\tstart\n");
+                    STB_LANG_ARM_MOVE(8, instr->left, STB_LANG_REGISTER(instr->phys[0], 8))
+                    STB_LANG_EMIT_CODE("\tstr %s, [sp, #%d]\n", STB_LANG_REGISTER(instr->phys[0], 8), n*8);
+                }else if (instr->dest->value[0] == 'v'){
+                    snprintf(string, 32, "v%d", atoi(instr->dest->value + 1));
+                    STB_LANG_ARM_MOVE(8, instr->left, string)
+                }
+                exit(-1);
             }
         )
         STB_LANG_CODEGEN_CASE(IR_LOAD,

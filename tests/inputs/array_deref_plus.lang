@@ -5,9 +5,7 @@ int main(){
     a[0] = 0;
     a[1] = 0
     a[2] = 0
-#!ir.inline {
-    mov a[2], 5
-}
+    deref(a + 16) = 5 // Increase a by 16 BYTES, INT PER BYTE
     printf("%d, %d, %d\n", a[0], a[1], a[2]);
     return 0;
 }

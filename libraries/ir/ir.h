@@ -104,6 +104,12 @@ if (fil > ir->files.datalen){ \
 } \
 stb_lang_error_minor(ir->files.data[fil].name, ir->files.data[fil].contents, where, type, __VA_ARGS__);
 
+#define STB_LANG_IR_ERROR_MINOR_UNDERLYING(where, fil, type, ...) \
+if (fil > ir->files.datalen){ \
+    stb_lang_error_minor_underlying(ir->file.name, ir->file.contents, where, "IRError", "Failure to generate error"); \
+} \
+stb_lang_error_minor_underlying(ir->files.data[fil].name, ir->files.data[fil].contents, where, type, __VA_ARGS__);
+
 
 #define STB_LANG_NEW_IR(fields, init, operands, types, cases) \
 typedef enum{operands}STB_CONCAT(CUR_IR_NAME, _OperandType); \
