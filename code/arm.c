@@ -70,8 +70,12 @@ if (right != NULL) { \
                 STB_LANG_EMIT_CODE("\tmov %s, x%d\n", leftr, atoi(right->value + 1)); \
             } \
         }else if (right->value[0] == '.'){ \
-            int n = atoi(instr->dest->value + 4); \
-            STB_LANG_EMIT_CODE("\tldr %s, [sp, #%d]\n", leftr, n * 8); \
+            if (right->value[2] == 'r') { \
+                int n = atoi(right->value + 4); \
+                STB_LANG_EMIT_CODE("\tldr %s, [sp, #%d]\n", leftr, n * 8); \
+            }else { \
+                STB_LANG_EMIT_CODE("\tmov %s, x%d\n", leftr, atoi(right->value + 2)); \
+            }; \
         }else if (right->value[0] == 'v'){ \
             STB_LANG_EMIT_CODE("\tmov %s, %c0\n", leftr, size==8?'x':'w'); \
         }else { \
@@ -237,22 +241,29 @@ STB_LANG_NEW_CODEGEN(
                 }
 
             }else if (instr->dest->type == IR_REG){
-                // printf("A, %s\n", instr->dest->value);
-                // STB_LANG_EMIT_CODE("\tan, %s\n", instr->dest->value);
+                // fprintf(stderr, "Hi\n");
+                // fprintf(stderr, "%s\n", instr->dest->value);
                 char string[32];
                 if (instr->dest->value[0] == 'a'){
-                    snprintf(string, 32, "x%d", atoi(instr->dest->value + 1));
+                    int num = atoi(instr->dest->value + 1);
+                    snprintf(string, 32, "x%d", num);
                     STB_LANG_ARM_MOVE(8, instr->left, string)
-                    int offset = (atoi(instr->dest->value+1) + 1) * 16;
+                    int offset = (num + 1) * 16;
                     STB_LANG_EMIT_CODE("\tstr %s, [sp, #-%d]\n", string, offset); // New bug fix: dump args to stack
                 }else if (instr->dest->value[0] == 't'){
                     snprintf(string, 32, "%s", instr->dest->value);
                     STB_LANG_ARM_MOVE(8, instr->left, string)
                 }else if (instr->dest->value[0] == '.'){
-                    int n = atoi(instr->dest->value + 4);
-                    // STB_LANG_EMIT_CODE("\tstart\n");
-                    STB_LANG_ARM_MOVE(8, instr->left, STB_LANG_REGISTER(instr->phys[0], 8))
-                    STB_LANG_EMIT_CODE("\tstr %s, [sp, #%d]\n", STB_LANG_REGISTER(instr->phys[0], 8), n*8);
+                    // fprintf(stderr, "[%s]\n", instr->dest->value);
+                    if (instr->dest->value[2] == 'r'){
+                        int n = atoi(instr->dest->value + 4);
+                        // STB_LANG_EMIT_CODE("\tstart\n");
+                        STB_LANG_ARM_MOVE(8, instr->left, STB_LANG_REGISTER(instr->phys[0], 8))
+                        STB_LANG_EMIT_CODE("\tstr %s, [sp, #%d]\n", STB_LANG_REGISTER(instr->phys[0], 8), n*8);
+                    }else {
+                        snprintf(string, 32, "x%d", atoi(instr->dest->value + 2));
+                        STB_LANG_ARM_MOVE(8, instr->left, string)
+                    }
                 }else if (instr->dest->value[0] == 'v'){
                     snprintf(string, 32, "v%d", atoi(instr->dest->value + 1));
                     STB_LANG_ARM_MOVE(8, instr->left, string)

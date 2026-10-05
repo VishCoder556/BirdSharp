@@ -1373,7 +1373,7 @@ STB_LANG_ITERATE_LINKED_LIST(ast->left, _args, Lang_Parser_AST,
                 for (int i = paramslen - 1; i >= 0; i--) {
                     Lang_Parser_AST *param = params[i];
                     if (param->type != AST_IR_TEMP){
-                        STB_LANG_IR_ERROR_MINOR(ast->offset, ast->file, "InlineIRCallError", "Only temporary registers are allowed to be arguments in inline IR");
+                        STB_LANG_IR_ERROR_MINOR(ast->offset, ast->file, "InlineIRCallError", "Only argument registers (`a0, a1, ...`) are allowed to be arguments in inline IR");
                     }
 
                     STB_CONCAT(CUR_IR_NAME, _Operand) *operand = lang_ir_ast(ir, param, 0);
@@ -1746,15 +1746,12 @@ STB_LANG_ITERATE_LINKED_LIST(ast->left, _args, Lang_Parser_AST,
             return STB_LANG_IR_AS_TEMP(IR_REG, dest);
         )
         STB_LANG_IR_CASE(AST_DEREF,
-            // fprintf(stderr, "%d\n", STB_LANG_LOOKUP_SIZE(ir->root_scope, &ast->typeinfo));
 
             STB_LANG_IR_NEW_TEMP(dest);
 
 
             STB_CONCAT(CUR_IR_NAME, _Operand) *operand;
             operand = STB_LANG_IR_LHS(ast);
-
-            // printf("%d, %d\n", STB_LANG_LHS(ast)->typeinfo.type, STB_LANG_LHS(ast)->typeinfo.ptrnum);
 
 
             if (extr == 0){
@@ -1951,7 +1948,6 @@ STB_LANG_OPTIMIZER_CASES(
         // if (instr->dest->type == IR_REG){
         //     STB_LANG_OPT_REG(instr->dest->value, instr->left);
         // }
-        // fprintf(stderr, "B\n");
     )
     STB_LANG_OPTIMIZER_CASE(IR_DECL,
     )
