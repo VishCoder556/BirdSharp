@@ -2193,12 +2193,12 @@ STB_LANG_NEW_REGALLOC(
 #define CUR_DRIVER_PREFIX lang_driver
 
 void STB_LANG_INVOKE_DRIVER(Lang_CodeGen_Arm *gen, char far, char *output){
-    char *asm_path = "res/main.s";
+    char *asm_path = "__res/main.s";
     STB_LANG_DRIVER_WRITE_DATA(asm_path);
 
     char exec_instr[500];
     char exec_path[100];
-    snprintf(exec_path, 100, "res/%s", output);
+    snprintf(exec_path, 100, "__res/%s", output);
     if (far == 0){
         strncpy(exec_instr, "clang -O0 -arch arm64 -c %s -o %s", 500);
         STB_LANG_DRIVER_RUN_SCRIPT(exec_instr, asm_path, exec_path);
@@ -2207,8 +2207,7 @@ void STB_LANG_INVOKE_DRIVER(Lang_CodeGen_Arm *gen, char far, char *output){
     STB_LANG_DRIVER_RUN_SCRIPT("rm %s", asm_path);
 }
 
-void STB_LANG_DRIVER_LINK(char *objs){
-    char *exec_path = "res/main.out";
+void STB_LANG_DRIVER_LINK(char *objs, char *exec_path){
 
     char exec_instr[500];
     strncpy(exec_instr, "clang -O0 -arch arm64 %s -o %s -e _main -Wl,-w -Wl,-platform_version,macos,11.0,11.0 -lc", 500);
@@ -2349,21 +2348,34 @@ int main(int argc, char **argv){
     linker_data.libpaths = dymarray_String_new();
 
     char *input_file = NULL;
+    char *output_file = NULL;
     (void)input_file;
+    (void)output_file;
     for (int i=1; i<argc; i++){
         char *str = argv[i];
         if (str == NULL){break;};
         if (strcmp(str, "-help") == 0){
             fprintf(stderr, "%s", HELP);
             exit(-1);
+        }else if (strcmp(str, "-o") == 0){
+            output_file = (char*)1;
+            continue;
+        }else if (output_file == (char*)1){
+            output_file = str;
         }else {
             input_file = str;
+        }
+        if (output_file == (char*)1){
+            output_file = NULL;
         }
     }
     if (input_file == NULL){
         fprintf(stderr, "No files given\n");
         exit(-1);
     }
+    if (output_file == (char*)1 || output_file == NULL){
+        output_file = "main";
+    };
 
     char *input_file_dir = strdup(input_file);
     for (int i=strlen(input_file_dir); i>0; i--){
@@ -2374,13 +2386,13 @@ int main(int argc, char **argv){
     }
 
 
+    STB_LANG_DRIVER_RUN_SCRIPT("mkdir __res");
     
     char *newone = malloc(200);
-    strncpy(newone, "res/main.o", 200);
+    strncpy(newone, "__res/main.o", 200);
 
 
     lang_comp_data_from_file(input_file, -1, 0, 0, "main.o");
-// "res/main.o"
     for (int i=0; i<linker_data.modules.datalen; i++){
         char *str = malloc(100);
         snprintf(str, 100, "%s/%s.lang", input_file_dir, linker_data.modules.data[i]);
@@ -2390,7 +2402,7 @@ int main(int argc, char **argv){
         lang_comp_data_from_file(str, -1, 0, 0, str2);
 
 
-        snprintf(str2, 100, "res/%s.o", linker_data.modules.data[i]);
+        snprintf(str2, 100, "__res/%s.o", linker_data.modules.data[i]);
         strncat(newone, " ", 1);
         strcat(newone, str2);
 
@@ -2398,7 +2410,9 @@ int main(int argc, char **argv){
         free(str2);
     }
 
-    STB_LANG_DRIVER_LINK(newone);
+
+    STB_LANG_DRIVER_LINK(newone, output_file);
+    STB_LANG_DRIVER_RUN_SCRIPT("rm -rf __res");
 
 // STB_LANG_DRIVER_LINK(Lang_CodeGen_Arm *gen, char *objs);
 
