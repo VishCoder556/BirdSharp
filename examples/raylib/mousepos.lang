@@ -7,6 +7,8 @@
 #!linker.framework "AppKit"
 #!linker.library "raylib"
 
+
+
 struct Color{
     char r
     char g

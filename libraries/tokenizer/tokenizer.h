@@ -207,9 +207,9 @@ char STB_CONCAT(CUR_TOKENIZER_PREFIX, _advance)(CUR_TOKENIZER_NAME *tokenizer){ 
     if (tokenizer->cursor >= tokenizer->file.contentlen) return -1; \
     return c; \
 } \
-CUR_TOKENIZER_NAME* STB_CONCAT(CUR_TOKENIZER_PREFIX, _init)(char *name){ \
+CUR_TOKENIZER_NAME* STB_CONCAT(CUR_TOKENIZER_PREFIX, _init)(STB_CONCAT(CUR_TOKENIZER_NAME, _File) file){ \
     CUR_TOKENIZER_NAME *tokenizer = malloc(sizeof(*tokenizer)); \
-    tokenizer->file = STB_CONCAT(CUR_TOKENIZER_PREFIX, _file_init)(name); \
+    tokenizer->file = file; \
     tokenizer->cursor = 0; \
     tokenizer->tokens = STB_CONCAT(STB_CONCAT3(dymarray_, CUR_TOKENIZER_NAME, _Token), _new)(); \
     return tokenizer; \

@@ -8,19 +8,16 @@
 FILE *f = fopen(path, "w"); \
 if (!f) { \
     stb_lang_error_major_global("DriverError", "Could not open target path \"%s\"", path); \
-    return -1; \
 } \
 fprintf(f, "%s", gen->code.data); \
 if (ferror(f)){ \
     stb_lang_error_major_global("DriverError", "Error occured when writing to \"%s\"", path); \
-    return -1; \
 } \
 fclose(f);
 
-#define STB_LANG_DRIVER_RUN_SCRIPT(...) STB_CONCAT(CUR_DRIVER_PREFIX, _run)(__VA_ARGS__);
+#define STB_LANG_DRIVER_RUN_SCRIPT(...) STB_LANG_DRIVER_RUN(__VA_ARGS__);
 
-#define STB_LANG_NEW_DRIVER(...) \
-void STB_CONCAT(CUR_DRIVER_PREFIX, _run)(char *fmt, ...){ \
+void STB_LANG_DRIVER_RUN(char *fmt, ...){ \
     va_list args; \
     va_start(args, fmt); \
     int addcap = 256; \
@@ -41,16 +38,7 @@ void STB_CONCAT(CUR_DRIVER_PREFIX, _run)(char *fmt, ...){ \
     } \
     va_end(args); \
     system(add); \
-} \
-char STB_CONCAT(CUR_DRIVER_PREFIX, _init)(CUR_CODEGEN_NAME *gen){ \
-    __VA_ARGS__; \
-    return 0; \
-};\
+}
 
-#define STB_LANG_INVOKE_DRIVER(gen) do {\
-    if (STB_CONCAT(CUR_DRIVER_PREFIX, _init)(gen) == -1){ \
-        stb_lang_error_major_global("DriverError", "Something went wrong"); \
-    } \
-}while(0);
 
 #endif

@@ -121,6 +121,12 @@ STB_LANG_NEW_CODEGEN(
     STB_LANG_CODEGEN_PREFIX(
         STB_LANG_EMIT_CODE("%s\n", ".global _main");
         STB_LANG_EMIT_CODE("%s\n", ".align 2");
+
+
+        for (int i=0; i<linker_data.exports.datalen; i++){
+            STB_LANG_EMIT_CODE(".global _%s\n", linker_data.exports.data[i]);
+        };
+        linker_data.exports.datalen = 0;
     ),
     STB_LANG_CODEGEN_SUFFIX(
         STB_LANG_EMIT_CODE(".data\n");

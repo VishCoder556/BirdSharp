@@ -29,6 +29,7 @@ char *HELP = "BirdSharp HELP Manual\n\t"
 "-help: creates this page\n";
 
 
+
 #define CUR_TOKENIZER_NAME Lang_Tokenizer
 #define CUR_TOKENIZER_PREFIX lang_tokenizer
 
@@ -155,7 +156,7 @@ STB_LANG_PREPROCESSOR_PROCESS(
                         processor->cursor = oldcursor;
                         STB_LANG_PROCESSOR_UPDATE();
 
-                        Lang_Tokenizer *_tokenizer = lang_tokenizer_init(name);
+                        Lang_Tokenizer *_tokenizer = lang_tokenizer_init(lang_tokenizer_file_init(name));
                         while (lang_tokenizer_token(_tokenizer) == 0){
                         }
                         Lang_Preprocessor *_processor = lang_preprocessor_init(_tokenizer, processor->fl+1);
@@ -192,6 +193,8 @@ typedef struct {
     dymarray_String frameworks;
     dymarray_String libraries;
     dymarray_String libpaths;
+    dymarray_String modules;
+    dymarray_String exports;
 }Lang_LinkerData;
 Lang_LinkerData linker_data = (Lang_LinkerData){0};
 
@@ -263,6 +266,20 @@ if (strcmp(data, "scope.flat") == 0){ \
          dymarray_String_add(&linker_data.libpaths, token.value); \
     }else { \
         STB_LANG_PARSER_ERROR_MINOR(token.offset, token.file, "InlineIRError", "Unexpected argument to mode \"linker.library\""); \
+    }; \
+    STB_LANG_PARSER_ADVANCE(); \
+}else if (strcmp(data, "import") == 0){ \
+    if (token.type == TOKEN_ID){ \
+         dymarray_String_add(&linker_data.modules, token.value); \
+    }else { \
+        STB_LANG_PARSER_ERROR_MINOR(token.offset, token.file, "InlineIRError", "Unexpected argument to mode \"import\" (expected identifier)"); \
+    }; \
+    STB_LANG_PARSER_ADVANCE(); \
+}else if (strcmp(data, "export.global") == 0){ \
+    if (token.type == TOKEN_ID){ \
+         dymarray_String_add(&linker_data.exports, token.value); \
+    }else { \
+        STB_LANG_PARSER_ERROR_MINOR(token.offset, token.file, "InlineIRError", "Unexpected argument to mode \"export.global\" (expected identifier)"); \
     }; \
     STB_LANG_PARSER_ADVANCE(); \
 } \
@@ -1100,7 +1117,7 @@ STB_LANG_NEW_TYPEINFO(
 
             Lang_TypeInfo_Typeinfo typinf = STB_LANG_OF_AST(ast->left, typeinfo);
             if (typinf.ptrnum == 0 && typinf.type != AST_TYPE_ARRAY){
-                STB_LANG_TYPEINFO_ERROR_MINOR(ast->offset, ast->file, "DerefError", "Could not dereference anything that's not a pointer");
+                STB_LANG_TYPEINFO_ERROR_MINOR(ast->offset, ast->file, "DerefError", "Could not dereference anything that's not a pointer or array");
             }else if (typinf.type == AST_TYPE_ARRAY){
                 if (typinf.data.array.elem_type != NULL){
                     ast->typeinfo = *(Lang_TypeInfo_Typeinfo*)(typinf.data.array.elem_type);
@@ -2175,42 +2192,156 @@ STB_LANG_NEW_REGALLOC(
 
 #define CUR_DRIVER_PREFIX lang_driver
 
-STB_LANG_NEW_DRIVER(
+void STB_LANG_INVOKE_DRIVER(Lang_CodeGen_Arm *gen, char far, char *output){
     char *asm_path = "res/main.s";
-    char *exec_path = "res/main.out";
     STB_LANG_DRIVER_WRITE_DATA(asm_path);
 
     char exec_instr[500];
-    strncpy(exec_instr, "clang -O0 -arch arm64 %s -o %s -e _main -Wl,-w -Wl,-platform_version,macos,11.0,11.0 -lc", 500);
+    char exec_path[100];
+    snprintf(exec_path, 100, "res/%s", output);
+    if (far == 0){
+        strncpy(exec_instr, "clang -O0 -arch arm64 -c %s -o %s", 500);
+        STB_LANG_DRIVER_RUN_SCRIPT(exec_instr, asm_path, exec_path);
+    }
+    // STB_LANG_DRIVER_RUN_SCRIPT(exec_instr, asm_path, exec_path);
+    STB_LANG_DRIVER_RUN_SCRIPT("rm %s", asm_path);
+}
 
+void STB_LANG_DRIVER_LINK(char *objs){
+    char *exec_path = "res/main.out";
+
+    char exec_instr[500];
+    strncpy(exec_instr, "clang -O0 -arch arm64 %s -o %s -e _main -Wl,-w -Wl,-platform_version,macos,11.0,11.0 -lc", 500);
+    
     for (int i=0; i<linker_data.libpaths.datalen; i++){
         strcat(exec_instr, " -L");
         strcat(exec_instr, linker_data.libpaths.data[i]);
     };
-
+    
     for (int i=0; i<linker_data.libraries.datalen; i++){
         strcat(exec_instr, " lib");
         strcat(exec_instr, linker_data.libraries.data[i]);
         strcat(exec_instr, ".a");
     };
-
+    
     for (int i=0; i<linker_data.frameworks.datalen; i++){
         strcat(exec_instr, " -framework ");
         strcat(exec_instr, linker_data.frameworks.data[i]);
     };
-    STB_LANG_DRIVER_RUN_SCRIPT(exec_instr, asm_path, exec_path);
+    STB_LANG_DRIVER_RUN_SCRIPT(exec_instr, objs, exec_path);
+}
 
-    // STB_LANG_DRIVER_RUN_SCRIPT( "yasm -f macho64 %s -o %s", asm_path, obj_path);
-    // STB_LANG_DRIVER_RUN_SCRIPT(
-    //     "ld -arch x86_64 %s -o %s -e _main -w -lSystem -syslibroot $(xcrun --show-sdk-path) -platform_version macos 11.0 11.0", 
-    //     obj_path, exec_path
-    // );
-    // ^ for legacy x86_64
+// STB_LANG_DRIVER_RUN_SCRIPT("cat %s", asm_path);
+
+// STB_LANG_DRIVER_RUN_SCRIPT( "yasm -f macho64 %s -o %s", asm_path, obj_path);
+// STB_LANG_DRIVER_RUN_SCRIPT(
+//     "ld -arch x86_64 %s -o %s -e _main -w -lSystem -syslibroot $(xcrun --show-sdk-path) -platform_version macos 11.0 11.0", 
+//     obj_path, exec_path
+// );
+// ^ for legacy x86_64
 
 
-    // STB_LANG_DRIVER_RUN_SCRIPT("cat %s", asm_path);
-    STB_LANG_DRIVER_RUN_SCRIPT("rm %s", asm_path);
-);
+
+void *lang_comp_data(Lang_Tokenizer_File file, char far, char driver, char entry, char *output){
+/* Far variable possibilities
+ * -1: Go all the way through
+ * 0: Don't do anything
+ * 1: Stop after tokenizer
+ * 2: Stop after preprocessor
+ * 3: Stop after parser
+ * 4: Stop after typechecker
+ * 5: Stop after IR generation
+ * 6: Stop after optimization
+ * 7: Stop after register allocation
+*/
+
+
+
+    if (far < 0) far = -1;
+    if (far == 0) return NULL;
+    Lang_Tokenizer *tokenizer = lang_tokenizer_init(file);
+    while (lang_tokenizer_token(tokenizer) == 0){
+    }
+    if (far != -1 && far == 1) return (void*)tokenizer;
+    Lang_Preprocessor *processor = lang_preprocessor_init(tokenizer, 0);
+    while (lang_preprocessor_token(processor) == 0){
+    }
+
+    if (far != -1 && far == 2) return (void*)processor;
+
+
+    Lang_Parser *parser = lang_parser_init(processor);
+    while (lang_parser_parse_body(parser) == 0){
+    }
+    if (far != -1 && far == 3) return (void*)parser;
+
+    Lang_TypeInfo *checker = lang_typeinfo_init(parser);
+    while (lang_typeinfo_check(checker) == 0){
+    }
+    if (entry){
+        STB_LANG_FIND_FUNCTION_UNDERLYING(
+            checker->root_scope, "main", 
+
+            (void)symnew;
+        )else {
+            stb_lang_error_major_global_underlying("EntryError", "No entry point could be found");
+            stb_lang_error_hint("add a `main` function", "int main(){\n\treturn 0;\n}");
+        }
+    }
+
+    if (far != -1 && far == 4) return (void*)checker;
+
+
+
+    Lang_IR *ir = lang_ir_init(checker);
+    while (lang_ir_translate(ir) == 0){
+    }
+    if (far != -1 && far == 5) return (void*)ir;
+
+
+    Lang_Optimizer *optimizer = lang_optimizer_init(ir);
+    while (lang_optimizer_optimize(optimizer) == 0){
+
+    }
+    if (far != -1 && far == 6) return (void*)optimizer;
+
+
+    Lang_RegAlloc *regalloc = lang_regalloc_init(optimizer);
+    lang_regalloc_backtrace(regalloc);
+    while (lang_regalloc_alloc(regalloc) == 0){
+    }
+    if (far != -1 && far == 7) return (void*)regalloc;
+
+
+    if (regalloc->interpreted == 0){
+        Lang_CodeGen_Arm *gen = lang_codegen_arm_init(regalloc);
+        while (lang_codegen_arm_ir(gen) == 0){
+        }
+        STB_LANG_INVOKE_DRIVER(gen, driver, output);
+    }else {
+        // Basic interpreter -- in testing
+        fprintf(stderr, "----- INTERPRETER -----\n");
+        Lang_CodeGen_Intrp *gen = lang_codegen_intrp_init(regalloc);
+        while (lang_codegen_intrp_ir(gen) == 0){
+        }
+    }
+    return NULL;
+};
+void *lang_comp_data_from_file(char *input_file, char far, char driver, char entry, char *output){
+    if (input_file == NULL){
+        stb_lang_error_major_global("ArgsError", "No input file provided");
+    }
+    return lang_comp_data(lang_tokenizer_file_init(input_file), far, driver, entry, output);
+}
+void *lang_comp_data_from_text(char *name, char *text, char far, char driver, char entry, char *output){
+    Lang_Tokenizer_File file;
+    file.file = NULL;
+    file.name = name;
+    file.contents = text;
+    file.contentlen = strlen(text);
+    return lang_comp_data(file, far, driver, entry, output);
+}
+
 
 int main(int argc, char **argv){
     linker_data.frameworks = dymarray_String_new();
@@ -2218,6 +2349,7 @@ int main(int argc, char **argv){
     linker_data.libpaths = dymarray_String_new();
 
     char *input_file = NULL;
+    (void)input_file;
     for (int i=1; i<argc; i++){
         char *str = argv[i];
         if (str == NULL){break;};
@@ -2229,71 +2361,46 @@ int main(int argc, char **argv){
         }
     }
     if (input_file == NULL){
-        stb_lang_error_major_global("ArgsError", "No input file provided");
-    }
-    Lang_Tokenizer *tokenizer = lang_tokenizer_init(input_file);
-    while (lang_tokenizer_token(tokenizer) == 0){
-    }
-    Lang_Preprocessor *processor = lang_preprocessor_init(tokenizer, 0);
-    while (lang_preprocessor_token(processor) == 0){
+        fprintf(stderr, "No files given\n");
+        exit(-1);
     }
 
-
-    Lang_Parser *parser = lang_parser_init(processor);
-    while (lang_parser_parse_body(parser) == 0){
-    }
-
-    Lang_TypeInfo *checker = lang_typeinfo_init(parser);
-    while (lang_typeinfo_check(checker) == 0){
-    }
-    STB_LANG_FIND_FUNCTION_UNDERLYING(
-        checker->root_scope, "main", 
-
-        (void)symnew;
-    )else {
-        stb_lang_error_major_global_underlying("EntryError", "No entry point could be found");
-        stb_lang_error_hint("add a `main` function", "int main(){\n\treturn 0;\n}");
+    char *input_file_dir = strdup(input_file);
+    for (int i=strlen(input_file_dir); i>0; i--){
+        if (input_file_dir[i] == '/'){
+            input_file_dir[i] = '\0';
+            break;
+        };
     }
 
 
+    
+    char *newone = malloc(200);
+    strncpy(newone, "res/main.o", 200);
 
-    Lang_IR *ir = lang_ir_init(checker);
-    while (lang_ir_translate(ir) == 0){
+
+    lang_comp_data_from_file(input_file, -1, 0, 0, "main.o");
+// "res/main.o"
+    for (int i=0; i<linker_data.modules.datalen; i++){
+        char *str = malloc(100);
+        snprintf(str, 100, "%s/%s.lang", input_file_dir, linker_data.modules.data[i]);
+        char *str2 = malloc(100);
+        snprintf(str2, 100, "%s.o", linker_data.modules.data[i]);
+            // Only temporary
+        lang_comp_data_from_file(str, -1, 0, 0, str2);
+
+
+        snprintf(str2, 100, "res/%s.o", linker_data.modules.data[i]);
+        strncat(newone, " ", 1);
+        strcat(newone, str2);
+
+        free(str);
+        free(str2);
     }
 
-    // fprintf(stderr, "A\n");
+    STB_LANG_DRIVER_LINK(newone);
 
-
-
-
-    // STB_LANG_ITERATE_LINKED_LIST(GetLinkedListHead((*parser), Lang_Parser_AST), field, Lang_Parser_AST,
-    //     fprintf(stderr, "Hello World, %d\n", field->type);
-    // )
-
-    Lang_Optimizer *optimizer = lang_optimizer_init(ir);
-    while (lang_optimizer_optimize(optimizer) == 0){
-
-    }
-
-
-    Lang_RegAlloc *regalloc = lang_regalloc_init(optimizer);
-    lang_regalloc_backtrace(regalloc);
-    while (lang_regalloc_alloc(regalloc) == 0){
-    }
-
-
-    if (regalloc->interpreted == 0){
-        Lang_CodeGen_Arm *gen = lang_codegen_arm_init(regalloc);
-        while (lang_codegen_arm_ir(gen) == 0){
-        }
-        STB_LANG_INVOKE_DRIVER(gen);
-    }else {
-        // Basic interpreter -- in testing
-        fprintf(stderr, "----- INTERPRETER -----\n");
-        Lang_CodeGen_Intrp *gen = lang_codegen_intrp_init(regalloc);
-        while (lang_codegen_intrp_ir(gen) == 0){
-        }
-    }
+// STB_LANG_DRIVER_LINK(Lang_CodeGen_Arm *gen, char *objs);
 
     // printf("-------- ASSEMBLY CODE --------\n");
     // printf("%s", gen->code.data);

@@ -15,6 +15,11 @@ int get_reg_num(char *str){
     int num = 0;
     if (str[0] == 'a'){
         num = atoi(str + 1) + 1;
+    }else if (str[0] == '.'){
+        if (str[2] == 'r'){
+        }else {
+            num = atoi(str + 1) + 1;
+        }
     }else if (strcmp(str, "v0") == 0){
         num = 0;
     }else if (str[0] == 't'){
@@ -29,6 +34,7 @@ int get_reg_num(char *str){
 };
 
 #define STB_LANG_CODEGEN_INTRP_OP(op) \
+if (gen->active){ \
 Lang_IR_Operand left = operand_simplify(gen, *instr->left); \
 Lang_IR_Operand right = operand_simplify(gen, *instr->right); \
 Lang_IR_Operand total; \
@@ -37,19 +43,23 @@ if (left.type == IR_INT && right.type == IR_INT){ \
     char str[16]; \
     snprintf(str, 16, "%d", atoi(left.value) op atoi(right.value)); \
     total.value = strdup(str); \
+}else { \
 } \
 if (instr->dest->type == IR_REG){ \
     gen->regs->data[get_reg_num(instr->dest->value)] = total; \
+} \
 }
 
 STB_LANG_NEW_CODEGEN(
     STB_LANG_CODEGEN_FIELDS(
+        int active;
         dymarray_Lang_IR_Operand *regs;
         // v0:0, a0.... = 1...
     ),
     STB_LANG_CODEGEN_INIT(
         gen->regs = malloc(sizeof(*gen->regs));
         *gen->regs = dymarray_Lang_IR_Operand_new();
+        gen->active = 1;
     ),
     STB_LANG_CODEGEN_PREFIX(
     ),
@@ -59,7 +69,7 @@ STB_LANG_NEW_CODEGEN(
         Lang_IR_Operand operand_simplify(Lang_CodeGen_Intrp *gen, Lang_IR_Operand operand){
             if (operand.type == IR_REG){
                 operand = gen->regs->data[get_reg_num(operand.value)];
-                operand_simplify(gen, operand);
+                ;
             }
             return operand;
         };
@@ -68,17 +78,32 @@ STB_LANG_NEW_CODEGEN(
         STB_LANG_CODEGEN_CASE(IR_EXTERN,
         )
         STB_LANG_CODEGEN_CASE(IR_FUNCDEF_BEGIN,
+            if (strcmp(instr->dest->value, "main")){
+                gen->active = 0;
+            }
         )
         STB_LANG_CODEGEN_CASE(IR_RET,
+            if (gen->active){
             if (instr->left->type == IR_INT){
                 exit(atoi(instr->left->value));
             };
+            }
         )
         STB_LANG_CODEGEN_CASE(IR_FUNCDEF_END,
+            if (gen->active == 0){
+                gen->active = 1;
+            }
         )
         STB_LANG_CODEGEN_CASE(IR_ASSIGN,
-            if (instr->dest->type == IR_REG){
-                gen->regs->data[get_reg_num(instr->dest->value)] = *instr->left;
+            if (gen->active){
+                // printf("%s = %s\n", instr->dest->value, instr->left->value);
+                if (instr->dest->type == IR_REG){
+                    Lang_IR_Operand left = *instr->left;
+                    if (left.type == IR_REG){
+                        left = gen->regs->data[get_reg_num(left.value)];
+                    }
+                    gen->regs->data[get_reg_num(instr->dest->value)] = left;
+                }
             }
         )
         STB_LANG_CODEGEN_CASE(IR_ADD,
@@ -95,7 +120,7 @@ STB_LANG_NEW_CODEGEN(
         )
 
         STB_LANG_CODEGEN_CASE(IR_CALL,
-            if (instr->dest->value != NULL){
+            if (instr->dest->value != NULL && gen->active){
             if (strcmp(instr->dest->value, "print") == 0){
                 Lang_IR_Operand op = operand_simplify(gen, gen->regs->data[1]);
                 if (op.type == IR_MEM){
@@ -114,7 +139,7 @@ STB_LANG_NEW_CODEGEN(
                     op.value = (char*)(long)(gen->symbols.datalen - 1);
                     gen->regs->data[0] = op;
                 }
-            }
+            } // TODO: add other types of func calls
             }
         )
     )

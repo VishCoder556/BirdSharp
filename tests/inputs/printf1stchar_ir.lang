@@ -2,8 +2,8 @@ void printf(string fmt, ...);
 
 int main(){
 #!ir.inline {
-    mov .a0, "Hello World, %d\n"
-    mov .arg0, 5
+    mov .a0, "Hello World, %c\n"
+    mov .arg0, deref(cast(ptr<char>, .a0))
     call printf(.a0)
 }
     return 0;
