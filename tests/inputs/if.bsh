@@ -1,0 +1,17 @@
+#!include "examples/include/std.bsh"
+
+int main(int argc, ptr<string> argv){
+    int a = 5 + 3
+    int b = 2 + 8
+    if (a >= 8){
+        printf("True\n");
+    }else {
+        printf("False\n");
+    }
+    if (b < 10){
+        printf("True\n")
+    }else {
+        printf("False\n");
+    }
+    return 0;
+}

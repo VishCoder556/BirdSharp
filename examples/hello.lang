@@ -1,5 +1,0 @@
-#!include "examples/include/std.lang"
-
-int main(int argc, int argv){
-    printf("Hello, World!\n");
-}

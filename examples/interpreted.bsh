@@ -1,0 +1,13 @@
+#!include "examples/include/std.bsh"
+#!mode.interpreted
+// Very basic interpreter
+
+
+void print(string fmt)
+string int_to_string(int num)
+
+int main(){
+    print(int_to_string(5 * 3 + 1 * (9 - 3))) // 21
+    print("\n")
+    return 0
+}

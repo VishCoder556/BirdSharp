@@ -1,0 +1,15 @@
+#!include "examples/include/std.bsh"
+
+int temp(){
+    return 25
+}
+
+int main(){
+    int a = 5
+    // .arg0... are for variadic arguments (like all arguments after format string in printf)
+    #!ir.inline {
+        mov .t0, "%d\n"
+        mov .arg0, temp()
+        call printf(.t0)
+    }
+}

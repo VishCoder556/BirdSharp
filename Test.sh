@@ -5,7 +5,7 @@ RED='\033[031m'
 CLEAR='\033[0m'
 
 for file in tests/inputs/*; do
-    base_name=$(basename "$file" .lang)
+    base_name=$(basename "$file" .bsh)
     echo "[INFO] Testing Example \""$base_name"\""
 
     ./exes/main $file
@@ -13,7 +13,7 @@ for file in tests/inputs/*; do
         echo -e "${RED}[ERROR] Compiler crashed${CLEAR}"
         continue
     fi
-    output=$(./res/main.out 2>&1)
+    output=$(./main 2>&1)
 
     expected=$(cat tests/expected/"$base_name".txt)
     if [[ "$output" == "$expected" ]]; then
@@ -21,7 +21,7 @@ for file in tests/inputs/*; do
     else
         echo $RED"[ERROR] Unexpected output"$CLEAR
         echo "\tExpected: "$expected
-        # echo "\tRecieved: "$output
+        echo "\tRecieved: "$output
     fi
-    rm res/main.out
+    rm main
 done

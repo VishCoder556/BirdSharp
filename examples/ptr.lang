@@ -1,9 +1,0 @@
-#!include "examples/include/std.lang"
-
-int main(int argc, int argv){
-    int i = 5;
-    ptr<int> a = ref(i)
-    deref(a) = 10
-    printf("%d\n", i)
-    return 0
-}

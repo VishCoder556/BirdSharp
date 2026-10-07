@@ -1,0 +1,73 @@
+#!include "examples/include/std.bsh"
+
+int main(){
+    ptr<char> mem = cast(ptr<char>, malloc(30000))
+    int curm = 0
+    ptr<char> code = cast(ptr<char>, ">+++++++++[<++++++++>-]<.>+++++++[<++++>-]<+.+++++++..+++.[-]>++++++++[<++++>-] <.>+++++++++++[<++++++++>-]<-.--------.+++.------.--------.[-]>++++++++[<++++>- ]<+.[-]++++++++++.");
+    // ptr<char> code = cast(ptr<char>, "+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++.");
+
+    int i = 0
+    while (i <= strlen(cast(string, code))){
+        char ch = code[i]
+        if (ch == cast(char, 62)){
+            // >
+            curm = curm + 1
+        }
+        if (ch == cast(char, 60)){
+            // <
+            curm = curm - 1
+        }
+        if (ch == cast(char, 43)){
+            // +
+            char c_ch = mem[curm]
+            mem[curm] = c_ch + cast(char, 1)
+        }
+        if (ch == cast(char, 45)){
+            // -
+            char c_ch = mem[curm]
+            mem[curm] = c_ch - cast(char, 1)
+        }
+        if (ch == cast(char, 91)){
+            // [
+            if (mem[curm] == cast(char, 0)){
+                int depth = 1
+                while (depth > 0){
+                    i = i + 1
+                    char nested_ch = code[i]
+                    if (nested_ch == cast(char, 91)){ 
+                        depth = depth + 1 
+                    }
+                    if (nested_ch == cast(char, 93)){ 
+                        depth = depth - 1 
+                    }
+                }
+            }
+        }
+        if (ch == cast(char, 93)){
+            // ]
+            if (mem[curm] != cast(char, 0)){
+                int depth = 1
+                while (depth > 0){
+                    i = i - 1
+                    char nested_ch = code[i]
+                    if (nested_ch == cast(char, 93)){ 
+                        depth = depth + 1 
+                    }
+                    if (nested_ch == cast(char, 91)){ 
+                        depth = depth - 1 
+                    }
+                }
+            }
+        }
+        if (ch == cast(char, 44)){
+            // ,
+            mem[curm] = getchar()
+        }
+        if (ch == cast(char, 46)){
+            // .
+            printf("%c", mem[curm])
+        }
+        i = i + 1
+    }
+    return 0;
+}

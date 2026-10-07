@@ -1,0 +1,369 @@
+// This piece of code tokenizes itself
+#!include "examples/include/std.bsh"
+
+
+ptr<int> fopen(string file, string permissions);
+void fseek(ptr<int> file, int a, int how);
+int ftell(ptr<int> file);
+void fseek(ptr<int> file, int a, int how);
+int fread(ptr<int> what, int size, int nitems, ptr<int> file);
+void fclose(ptr<int> file)
+ptr<int> realloc(ptr<int> old, int size);
+int isalpha(char a);
+int isalnum(char a);
+int isnumber(char a);
+
+struct Token {
+    string value
+    int type
+    int row
+    int col
+}
+struct Tokenizer {
+    string file_name
+    struct Token tok
+    ptr<int> contents
+    int contentlen
+    int cursor
+
+    ptr<struct Token> tokens
+    int tokenlen
+    int tokencap
+
+    int row
+    int col
+}
+
+void tokenizer_new_token(ptr<struct Tokenizer> tokenizer, string name, int type){
+    ptr<struct Token> tokens = deref(tokenizer).tokens
+    int tokencap = deref(tokenizer).tokencap
+    int tokenlen = deref(tokenizer).tokenlen
+    if (tokenlen >= tokencap){
+        tokencap = tokencap + 10;
+        tokens = cast(ptr<struct Token>, realloc(cast(ptr<int>, tokens), tokencap * 32))
+        deref(tokenizer).tokencap = tokencap
+        deref(tokenizer).tokens = tokens
+    }
+    ptr<struct Token> new_tok = tokens + cast(ptr<struct Token>, tokenlen*32)
+    deref(new_tok).value = name
+    deref(new_tok).type = type
+    deref(new_tok).row = deref(tokenizer).row
+    deref(new_tok).col = deref(tokenizer).col
+    deref(tokenizer).tokenlen = tokenlen + 1
+}
+
+int tokenizer_token(ptr<struct Tokenizer> tokenizer){
+    if (deref(tokenizer).cursor >= deref(tokenizer).contentlen){
+        return 0-1
+    }
+    ptr<char> contents = cast(ptr<char>, deref(tokenizer).contents)
+    int cur = deref(tokenizer).cursor
+    char c = contents[cur]
+    if (c == cast(char, 32)){ // ` `
+        deref(tokenizer).cursor = deref(tokenizer).cursor + 1
+        deref(tokenizer).col = deref(tokenizer).col + 1
+        return 0
+    }
+    if (c == cast(char, 35)){ // `#`
+        deref(tokenizer).cursor = deref(tokenizer).cursor + 1
+        deref(tokenizer).col = deref(tokenizer).col + 1
+        tokenizer_new_token(tokenizer, "#", 0)
+        return 0
+    }
+    if (c == cast(char, 40)){ // `(`
+        deref(tokenizer).cursor = deref(tokenizer).cursor + 1
+        deref(tokenizer).col = deref(tokenizer).col + 1
+        tokenizer_new_token(tokenizer, "(", 0)
+        return 0
+    }
+    if (c == cast(char, 41)){ // `)`
+        deref(tokenizer).cursor = deref(tokenizer).cursor + 1
+        deref(tokenizer).col = deref(tokenizer).col + 1
+        tokenizer_new_token(tokenizer, ")", 0)
+        return 0
+    }
+    if (c == cast(char, 123)){ // `{`
+        deref(tokenizer).cursor = deref(tokenizer).cursor + 1
+        deref(tokenizer).col = deref(tokenizer).col + 1
+        tokenizer_new_token(tokenizer, "{", 0)
+        return 0
+    }
+    if (c == cast(char, 125)){ // `}`
+        deref(tokenizer).cursor = deref(tokenizer).cursor + 1
+        deref(tokenizer).col = deref(tokenizer).col + 1
+        tokenizer_new_token(tokenizer, "}", 0)
+        return 0
+    }
+    if (c == cast(char, 60)){ // `<`
+        deref(tokenizer).cursor = deref(tokenizer).cursor + 1
+        deref(tokenizer).col = deref(tokenizer).col + 1
+        tokenizer_new_token(tokenizer, "<", 0)
+        return 0
+    }
+    if (c == cast(char, 62)){ // `>`
+        deref(tokenizer).cursor = deref(tokenizer).cursor + 1
+        deref(tokenizer).col = deref(tokenizer).col + 1
+        tokenizer_new_token(tokenizer, ">", 0)
+        return 0
+    }
+    if (isalpha(c)){ // `alpha`
+        int datalen = 0
+        int datacap = 20
+        ptr<char> data = cast(ptr<char>, malloc(datacap))
+        cur = deref(tokenizer).cursor
+        while (isalnum(contents[cur]) || contents[cur] == cast(char, 95)){
+            if (datalen >= datacap){
+                datacap = datacap + 20;
+                data = cast(ptr<char>, realloc(cast(ptr<int>, data), datacap))
+            }
+            data[datalen] = contents[cur]
+            datalen = datalen + 1
+
+            cur = deref(tokenizer).cursor + 1
+            deref(tokenizer).cursor = cur
+            deref(tokenizer).col = deref(tokenizer).col + 1
+        }
+        tokenizer_new_token(tokenizer, cast(string, data), 1)
+        return 0
+    }
+    if (isnumber(c)){ // `number`
+        int datalen = 0
+        int datacap = 20
+        ptr<char> data = cast(ptr<char>, malloc(datacap))
+        cur = deref(tokenizer).cursor
+        while (isnumber(contents[cur])){
+            if (datalen >= datacap){
+                datacap = datacap + 20;
+                data = cast(ptr<char>, realloc(cast(ptr<int>, data), datacap))
+            }
+            data[datalen] = contents[cur]
+            datalen = datalen + 1
+
+            cur = deref(tokenizer).cursor + 1
+            deref(tokenizer).cursor = cur
+            deref(tokenizer).col = deref(tokenizer).col + 1
+        }
+        tokenizer_new_token(tokenizer, cast(string, data), 2)
+        return 0
+    }
+    if (c == cast(char, 34)){ // `"`
+        int datalen = 0
+        int datacap = 20
+        ptr<char> data = cast(ptr<char>, malloc(datacap))
+        cur = deref(tokenizer).cursor + 1
+        deref(tokenizer).cursor = cur
+        while (contents[cur] != cast(char, 34)){
+            if (datalen >= datacap){
+                datacap = datacap + 20;
+                data = cast(ptr<char>, realloc(cast(ptr<int>, data), datacap))
+            }
+            data[datalen] = contents[cur]
+            datalen = datalen + 1
+
+            cur = deref(tokenizer).cursor + 1
+            deref(tokenizer).cursor = cur
+            deref(tokenizer).col = deref(tokenizer).col + 1
+        }
+        data[datalen] = cast(char, 0)
+        deref(tokenizer).cursor = deref(tokenizer).cursor + 1
+        deref(tokenizer).col = deref(tokenizer).col + 1
+        tokenizer_new_token(tokenizer, cast(string, data), 3)
+        return 0
+    }
+    if (c == cast(char, 47)){ // `/`
+        cur = deref(tokenizer).cursor + 1
+        deref(tokenizer).cursor = cur
+        if (contents[cur] == cast(char, 47)){
+            cur = deref(tokenizer).cursor + 1
+            deref(tokenizer).cursor = cur
+            while (contents[cur] != cast(char, 10)){
+                deref(tokenizer).cursor = cur
+                cur = deref(tokenizer).cursor + 1
+                deref(tokenizer).cursor = cur
+                deref(tokenizer).col = deref(tokenizer).col + 1
+            }
+            deref(tokenizer).col = 0
+            deref(tokenizer).row = deref(tokenizer).row + 1
+            return 0
+        }else {
+            tokenizer_new_token(tokenizer, "/", 0)
+            return 0
+        }
+    }
+    if (c == cast(char, 43)){ // `+`
+        tokenizer_new_token(tokenizer, "+", 0)
+        deref(tokenizer).cursor = deref(tokenizer).cursor + 1
+        deref(tokenizer).col = deref(tokenizer).col + 1
+        return 0
+    }
+    if (c == cast(char, 45)){ // `-`
+        tokenizer_new_token(tokenizer, "-", 0)
+        deref(tokenizer).cursor = deref(tokenizer).cursor + 1
+        deref(tokenizer).col = deref(tokenizer).col + 1
+        return 0
+    }
+    if (c == cast(char, 42)){ // `*`
+        tokenizer_new_token(tokenizer, "*", 0)
+        deref(tokenizer).cursor = deref(tokenizer).cursor + 1
+        deref(tokenizer).col = deref(tokenizer).col + 1
+        return 0
+    }
+    if (c == cast(char, 10)){ // `\n`
+        deref(tokenizer).col = 0
+        deref(tokenizer).row = deref(tokenizer).row + 1
+        deref(tokenizer).cursor = deref(tokenizer).cursor + 1
+        return 0
+    }
+    if (c == cast(char, 59)){ // `;`
+        deref(tokenizer).cursor = deref(tokenizer).cursor + 1
+        deref(tokenizer).col = deref(tokenizer).col + 1
+        return 0
+    }
+    if (c == cast(char, 9)){ // `;`
+        deref(tokenizer).cursor = deref(tokenizer).cursor + 1
+        deref(tokenizer).col = deref(tokenizer).col + 1
+        return 0
+    }
+    if (c == cast(char, 33)){ // `!`
+        tokenizer_new_token(tokenizer, "!", 0)
+        deref(tokenizer).cursor = deref(tokenizer).cursor + 1
+        deref(tokenizer).col = deref(tokenizer).col + 1
+        return 0
+    }
+    if (c == cast(char, 61)){ // `=`
+        tokenizer_new_token(tokenizer, "=", 0)
+        deref(tokenizer).cursor = deref(tokenizer).cursor + 1
+        deref(tokenizer).col = deref(tokenizer).col + 1
+        return 0
+    }
+    if (c == cast(char, 62)){ // `>`
+        deref(tokenizer).cursor = deref(tokenizer).cursor + 1
+        deref(tokenizer).col = deref(tokenizer).col + 1
+        cur = deref(tokenizer).cursor;
+        if (contents[cur] == cast(char, 61)){
+            tokenizer_new_token(tokenizer, ">=", 0)
+            deref(tokenizer).cursor = deref(tokenizer).cursor + 1
+            deref(tokenizer).col = deref(tokenizer).col + 1
+            return 0
+        }else {
+            if (contents[cur] == cast(char, 62)){
+                tokenizer_new_token(tokenizer, ">>", 0)
+                deref(tokenizer).cursor = deref(tokenizer).cursor + 1
+                deref(tokenizer).col = deref(tokenizer).col + 1
+                return 0
+            }else {
+                tokenizer_new_token(tokenizer, ">", 0)
+                return 0
+            }
+        }
+    }
+    if (c == cast(char, 60)){ // `<`
+        deref(tokenizer).cursor = deref(tokenizer).cursor + 1
+        deref(tokenizer).col = deref(tokenizer).col + 1
+        cur = deref(tokenizer).cursor;
+        if (contents[cur] == cast(char, 61)){
+            tokenizer_new_token(tokenizer, "<=", 0)
+            deref(tokenizer).cursor = deref(tokenizer).cursor + 1
+            deref(tokenizer).col = deref(tokenizer).col + 1
+            return 0
+        }else {
+            if (contents[cur] == cast(char, 60)){
+                tokenizer_new_token(tokenizer, "<<", 0)
+                deref(tokenizer).cursor = deref(tokenizer).cursor + 1
+                deref(tokenizer).col = deref(tokenizer).col + 1
+                return 0
+            }else {
+                tokenizer_new_token(tokenizer, "<", 0)
+                return 0
+            }
+        }
+    }
+    if (c == cast(char, 44)){ // `,`
+        tokenizer_new_token(tokenizer, ",", 0)
+        deref(tokenizer).cursor = deref(tokenizer).cursor + 1
+        deref(tokenizer).col = deref(tokenizer).col + 1
+        return 0
+    }
+    if (c == cast(char, 46)){ // `.`
+        tokenizer_new_token(tokenizer, ".", 0)
+        deref(tokenizer).cursor = deref(tokenizer).cursor + 1
+        deref(tokenizer).col = deref(tokenizer).col + 1
+        return 0
+    }
+    if (c == cast(char, 91)){ // `[`
+        tokenizer_new_token(tokenizer, "[", 0)
+        deref(tokenizer).cursor = deref(tokenizer).cursor + 1
+        deref(tokenizer).col = deref(tokenizer).col + 1
+        return 0
+    }
+    if (c == cast(char, 93)){ // `]`
+        tokenizer_new_token(tokenizer, "]", 0)
+        deref(tokenizer).cursor = deref(tokenizer).cursor + 1
+        deref(tokenizer).col = deref(tokenizer).col + 1
+        return 0
+    }
+    if (c == cast(char, 124)){ // `|`
+        tokenizer_new_token(tokenizer, "|", 0)
+        deref(tokenizer).cursor = deref(tokenizer).cursor + 1
+        deref(tokenizer).col = deref(tokenizer).col + 1
+        return 0
+    }
+    if (c == cast(char, 38)){ // `&`
+        tokenizer_new_token(tokenizer, "&", 0)
+        deref(tokenizer).cursor = deref(tokenizer).cursor + 1
+        deref(tokenizer).col = deref(tokenizer).col + 1
+        return 0
+    }
+    printf("Could not parse `%c`\n", c)
+    deref(tokenizer).col = deref(tokenizer).col + 1
+    deref(tokenizer).cursor = deref(tokenizer).cursor + 1
+    return 0
+}
+
+int get_file_len(ptr<int> file){
+    fseek(file, 0, 2);
+    int a = ftell(file);
+    fseek(file, 0, 0);
+    return a;
+}
+
+int main(int argc, ptr<string> argv){
+    int i = 1
+    string input_file = cast(string, 0)
+    while (i < argc){
+        input_file = argv[i]
+        i = i + 1
+    }
+    struct Tokenizer tokenizer
+    tokenizer.file_name = input_file
+    ptr<int> file = fopen(input_file, "r")
+    if (file == cast(ptr<int>, 0)){
+        printf("Error: Could not read file\n")
+    }
+    int len = get_file_len(file)
+    ptr<int> contents = malloc(len)
+    fread(contents, 1, len, file);
+
+    int tokencap = 5
+    ptr<int> tokens = malloc(tokencap * 32) // 32 is sizeof struct Token
+
+    tokenizer.contents = contents
+    tokenizer.contentlen = len 
+    tokenizer.cursor = 0
+    tokenizer.row = 1
+    tokenizer.col = 0
+    tokenizer.tokenlen = 0
+    tokenizer.tokencap = tokencap
+    tokenizer.tokens = tokens
+    fclose(file)
+    while (tokenizer_token(ref(tokenizer)) == 0){
+    }
+    int i = 0
+    while (i < tokenizer.tokenlen){
+        ptr<struct Token> tok = tokenizer.tokens + cast(ptr<struct Token>, i*32)
+        printf("Token with string '%s' and type '%d' at row '%d' and column '%d'\n", deref(tok).value, deref(tok).type, deref(tok).row, deref(tok).col)
+        i = i + 1
+    }
+    exit(0)
+    return 0;
+}

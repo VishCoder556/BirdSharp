@@ -1,4 +1,4 @@
-gcc code/main.c -o exes/main -Wall -Wextra -Werror -fsanitize=address -g3 -fno-omit-frame-pointer
-./exes/main examples/temp/a.lang
-./main examples/temp/a.lang
+gcc code/main.c -o exes/bsh -Wall -Wextra -Werror -fsanitize=address -g3 -fno-omit-frame-pointer
+./exes/bsh examples/temp/a.bsh
+./main examples/temp/a.bsh
 echo "Returned" $?

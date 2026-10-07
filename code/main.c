@@ -2377,12 +2377,19 @@ int main(int argc, char **argv){
         output_file = "main";
     };
 
+    int count = 0;
     char *input_file_dir = strdup(input_file);
     for (int i=strlen(input_file_dir); i>0; i--){
         if (input_file_dir[i] == '/'){
-            input_file_dir[i] = '\0';
+            count++;
+            input_file_dir[i+1] = '\0';
             break;
         };
+    }
+    if (count == 0){
+        free(input_file_dir);
+        input_file_dir = malloc(1);
+        input_file_dir[0] = '\0';
     }
 
 
@@ -2392,10 +2399,10 @@ int main(int argc, char **argv){
     strncpy(newone, "__res/main.o", 200);
 
 
-    lang_comp_data_from_file(input_file, -1, 0, 0, "main.o");
+    lang_comp_data_from_file(input_file, -1, 0, 1, "main.o");
     for (int i=0; i<linker_data.modules.datalen; i++){
         char *str = malloc(100);
-        snprintf(str, 100, "%s/%s.lang", input_file_dir, linker_data.modules.data[i]);
+        snprintf(str, 100, "%s%s.lang", input_file_dir, linker_data.modules.data[i]);
         char *str2 = malloc(100);
         snprintf(str2, 100, "%s.o", linker_data.modules.data[i]);
             // Only temporary

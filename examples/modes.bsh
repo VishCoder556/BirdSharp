@@ -1,0 +1,6 @@
+#!include "examples/include/std.bsh"
+#!declaration.var.infer
+#!scope.flat
+a = 5
+printf("%d\n", a)
+return 0;

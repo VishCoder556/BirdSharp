@@ -1,1 +1,1 @@
-Argument #0: ./res/main.out
+Argument #0: ./main

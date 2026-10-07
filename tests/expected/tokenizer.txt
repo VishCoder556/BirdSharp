@@ -1,7 +1,7 @@
 Token with string '#' and type '0' at row '1' and column '1'
 Token with string '!' and type '0' at row '1' and column '1'
 Token with string 'include' and type '1' at row '1' and column '9'
-Token with string 'examples/include/std.lang' and type '3' at row '1' and column '36'
+Token with string 'examples/include/std.bsh' and type '3' at row '1' and column '35'
 Token with string 'int' and type '1' at row '3' and column '3'
 Token with string 'main' and type '1' at row '3' and column '8'
 Token with string '(' and type '0' at row '3' and column '9'

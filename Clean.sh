@@ -1,1 +1,1 @@
-rm ./exes/main
+rm ./exes/bsh

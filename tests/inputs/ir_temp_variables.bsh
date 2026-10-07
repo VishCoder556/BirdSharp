@@ -1,0 +1,9 @@
+#!include "examples/include/std.bsh"
+
+int main(){
+#!ir.inline {
+    mov .t0, 10
+}
+    printf("Inline IR Number: %d\n", .t0);
+    return 0;
+}
