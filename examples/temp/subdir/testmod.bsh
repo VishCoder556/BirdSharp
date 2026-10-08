@@ -1,5 +1,0 @@
-#!export.global a
-
-int a(int b){
-    return b * 10
-}

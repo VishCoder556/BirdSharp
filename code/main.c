@@ -1210,7 +1210,7 @@ STB_LANG_NEW_TYPEINFO(
                         STB_LANG_TYPEINFO_ERROR_MINOR_UNDERLYING(ast->offset, ast->file, "AssignError", "Variable \"%s\" has not been declared before being assigned", STB_LANG_OF_AST(ast->left, value));
 
                         stb_lang_error_hint("if you're trying to access an IR register, use `.a0`", "mov .a0, 5");
-                        exit(-1);
+                        stb_lang_exit(-1);
                     }else {
                         ast->typeinfo = STB_LANG_RHS(ast)->typeinfo;
                         STB_LANG_LHS(ast)->typeinfo = ast->typeinfo;
@@ -1579,7 +1579,7 @@ STB_LANG_ITERATE_LINKED_LIST(ast->left, _args, Lang_Parser_AST,
             Lang_TypeInfo_Symbol *symbol = STB_LANG_GET_SYMBOL(ast->typeinfo.data.struct1.symbol);
             if (symbol == NULL){
                 fprintf(stderr, "Symbol error thing\n");
-                exit(0);
+                stb_lang_exit(0);
             }
             Lang_Parser_AST *structdef = STB_LANG_GET_AST(symbol->data.struct1.structdef);
             int offset = 0;
@@ -2377,7 +2377,7 @@ int main(int argc, char **argv){
         if (str == NULL){break;};
         if (strcmp(str, "-help") == 0){
             fprintf(stderr, "%s", HELP);
-            exit(-1);
+            stb_lang_exit(-1);
         }else if (strcmp(str, "-o") == 0){
             output_file = (char*)1;
             continue;
@@ -2392,7 +2392,7 @@ int main(int argc, char **argv){
     }
     if (input_file == NULL){
         fprintf(stderr, "No files given\n");
-        exit(-1);
+        stb_lang_exit(-1);
     }
     if (output_file == (char*)1 || output_file == NULL){
         output_file = "main";

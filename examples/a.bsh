@@ -1,8 +1,8 @@
 #!include "examples/include/std.bsh"
-#!import subdir.testmod
+#!import std.test
 int a(int b);
 
 int main(){
-    printf("Hello World, %d!\n", a(5))
+    printf("Hello World, %d!\n", 5)
     return 0
 }

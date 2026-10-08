@@ -11,13 +11,19 @@ void stb_lang_error_minor_underlying(char *file, char *contents, int offset, cha
 
 
 #define stb_lang_error_minor(...) \
-stb_lang_error_minor_underlying(__VA_ARGS__); exit(-1);
+stb_lang_error_minor_underlying(__VA_ARGS__); stb_lang_exit(-1);
 
 #define stb_lang_error_major_global(...) \
-stb_lang_error_major_global_underlying(__VA_ARGS__); exit(-1);
+stb_lang_error_major_global_underlying(__VA_ARGS__); stb_lang_exit(-1);
 
 
 #ifdef STB_LANG_ERROR_IMPLEMENTATION
+
+
+void stb_lang_exit(int code){
+    system("rm -rf __res 2>/dev/null");
+    exit(code);
+}
 
 void stb_lang_error_major_global_underlying(char *type, char *fmt, ...){
     va_list args;
@@ -27,7 +33,7 @@ void stb_lang_error_major_global_underlying(char *type, char *fmt, ...){
     char *add = arena_alloc(&g_arena, addcap);
     if (add == NULL){
         printf("\x1b[1;31m%s\x1b[0m: %s\n", "ErrorGeneratorError", "Not enough space to generate errors");
-        exit(-1);
+        stb_lang_exit(-1);
     }
 
     int n = vsnprintf(add, addcap, fmt, args);
@@ -37,7 +43,7 @@ void stb_lang_error_major_global_underlying(char *type, char *fmt, ...){
         add = realloc(add, addcap);
         if (add == NULL){
             printf("\x1b[1;31m%s\x1b[0m: %s\n", "ErrorGeneratorError", "Not enough space to generate errors");
-            exit(-1);
+            stb_lang_exit(-1);
         }
     }
     va_end(args);
@@ -67,7 +73,7 @@ void stb_lang_note_minor(char *file, char *contents, int offset, char *fmt, ...)
     char *add = arena_alloc(&g_arena, addcap);
     if (add == NULL){
         printf("\x1b[1;31m%s\x1b[0m: %s\n", "ErrorGeneratorError", "Not enough space to generate errors");
-        exit(-1);
+        stb_lang_exit(-1);
     }
 
     int n = vsnprintf(add, addcap, fmt, args);
@@ -77,7 +83,7 @@ void stb_lang_note_minor(char *file, char *contents, int offset, char *fmt, ...)
         add = realloc(add, addcap);
         if (add == NULL){
             printf("\x1b[1;31m%s\x1b[0m: %s\n", "ErrorGeneratorError", "Not enough space to generate errors");
-            exit(-1);
+            stb_lang_exit(-1);
         }
     }
     va_end(args);
@@ -91,7 +97,6 @@ void stb_lang_note_minor(char *file, char *contents, int offset, char *fmt, ...)
         if (contents[i] == '\0') {break;};
     };
     char *line = arena_strdup(&g_arena, contents + col);
-    char *oldline = line;
     if (line[0] == '\n'){line++;}
 
     i=last + 1;
@@ -119,7 +124,6 @@ void stb_lang_note_minor(char *file, char *contents, int offset, char *fmt, ...)
     for (int i=0; i<col; i++){printf(" ");}
     printf("^");
     printf("\n");
-    free(oldline);
 
 }
 
@@ -137,7 +141,7 @@ void stb_lang_error_minor_underlying(char *file, char *contents, int offset, cha
     char *add = arena_alloc(&g_arena, addcap);
     if (add == NULL){
         printf("\x1b[1;31m%s\x1b[0m: %s\n", "ErrorGeneratorError", "Not enough space to generate errors");
-        exit(-1);
+        stb_lang_exit(-1);
     }
 
     int n = vsnprintf(add, addcap, fmt, args);
@@ -147,7 +151,7 @@ void stb_lang_error_minor_underlying(char *file, char *contents, int offset, cha
         add = realloc(add, addcap);
         if (add == NULL){
             printf("\x1b[1;31m%s\x1b[0m: %s\n", "ErrorGeneratorError", "Not enough space to generate errors");
-            exit(-1);
+            stb_lang_exit(-1);
         }
     }
     va_end(args);
@@ -161,7 +165,6 @@ void stb_lang_error_minor_underlying(char *file, char *contents, int offset, cha
         if (contents[i] == '\0') {break;};
     };
     char *line = arena_strdup(&g_arena, contents + col);
-    char *oldline = line;
     if (line[0] == '\n'){line++;}
 
     i=last + 1;
@@ -189,7 +192,6 @@ void stb_lang_error_minor_underlying(char *file, char *contents, int offset, cha
     for (int i=0; i<col; i++){printf(" ");}
     printf("^");
     printf("\n");
-    free(oldline);
 }
 
 
