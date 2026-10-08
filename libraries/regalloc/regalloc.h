@@ -103,7 +103,7 @@ char *STB_CONCAT(CUR_REGALLOC_PREFIX, _register_from_reg)(STB_CONCAT3(dymarray_,
     return str; \
 }; \
 STB_CONCAT3(dymarray_, CUR_REGALLOC_NAME, _Register) *STB_CONCAT(CUR_REGALLOC_PREFIX, _regs_init)(){ \
-    STB_CONCAT3(dymarray_, CUR_REGALLOC_NAME, _Register) *dym = malloc(sizeof(*dym)); \
+    STB_CONCAT3(dymarray_, CUR_REGALLOC_NAME, _Register) *dym = arena_alloc(&g_arena, sizeof(*dym)); \
     *dym = STB_CONCAT(STB_CONCAT3(dymarray_, CUR_REGALLOC_NAME, _Register), _new)(); \
     for (int i=0; i<STB_LANG_REGALLOC_REG_MAX; i++){ \
         dym->data[dym->datalen++] = (STB_CONCAT(CUR_REGALLOC_NAME, _Register)){.available=1}; \
@@ -149,8 +149,8 @@ STB_CONCAT(CUR_REGALLOC_NAME, _VirtualRegister) STB_CONCAT(CUR_REGALLOC_PREFIX, 
     return vreg; \
 }; \
 CUR_REGALLOC_NAME *STB_CONCAT(CUR_REGALLOC_PREFIX, _init)(CUR_OPTIMIZER_NAME *optimizer){ \
-    CUR_REGALLOC_NAME *regalloc = malloc(sizeof(*regalloc)); \
-    regalloc->virtual_regs = malloc(sizeof(*regalloc->virtual_regs)); \
+    CUR_REGALLOC_NAME *regalloc = arena_alloc(&g_arena, sizeof(*regalloc)); \
+    regalloc->virtual_regs = arena_alloc(&g_arena, sizeof(*regalloc->virtual_regs)); \
     if (!regalloc->virtual_regs) { \
         fprintf(stderr, "Failed to allocate virtual_regs container\n"); \
         exit(-1); \
@@ -161,7 +161,7 @@ CUR_REGALLOC_NAME *STB_CONCAT(CUR_REGALLOC_PREFIX, _init)(CUR_OPTIMIZER_NAME *op
     regalloc->files = optimizer->files; \
     regalloc->instrs = optimizer->instrs; \
     regalloc->regs = STB_CONCAT(CUR_REGALLOC_PREFIX, _regs_init)(); \
-    regalloc->backtrack = malloc(sizeof(*regalloc->backtrack)); \
+    regalloc->backtrack = arena_alloc(&g_arena, sizeof(*regalloc->backtrack)); \
     *regalloc->backtrack = STB_CONCAT(STB_CONCAT3(dymarray_, CUR_REGALLOC_NAME, _Register_BackTrack), _new)(); \
     regalloc->cursor = 0; \
     regalloc->symbols = optimizer->symbols; \

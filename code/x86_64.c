@@ -217,7 +217,7 @@ STB_LANG_NEW_CODEGEN(
                 int size = STB_CONCAT(CUR_CODEGEN_PREFIX, _get_size_from_var)(gen, instr->dest->value);
                 int offset = STB_CONCAT(CUR_CODEGEN_PREFIX, _get_offset_from_var)(gen, instr->dest->value);
                 char str[32]; snprintf(str, 32, "%s [rbp - %d]", STB_LANG_X86_64_FORMAT(size), offset);
-                STB_LANG_X86_64_MOVE(8, instr->left, strdup(str));
+                STB_LANG_X86_64_MOVE(8, instr->left, arena_strdup(&g_arena, str));
             }else if (instr->dest->type == IR_REG){
                 if (instr->dest->value[0] == 'a'){
                     STB_LANG_X86_64_MOVE(8, instr->left, STB_LANG_X86_64_ARGS[atoi(instr->dest->value+1)]);

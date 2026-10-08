@@ -67,7 +67,7 @@ stb_lang_note_minor(checker->files.data[fil].name, checker->files.data[fil].cont
 
 #define STB_LANG_ADD_FUNCTION(nam, ...) do { \
     STB_CONCAT(CUR_TYPEINFO_NAME, _Symbol) symnew = (STB_CONCAT(CUR_TYPEINFO_NAME, _Symbol)) {.name=nam, .kind = STB_LANG_SYMBOL_FUNCTION}; \
-    symnew.data.function.args = malloc(sizeof(STB_CONCAT3(dymarray_, CUR_TYPEINFO_NAME, _Typeinfo))); \
+    symnew.data.function.args = arena_alloc(&g_arena, sizeof(STB_CONCAT3(dymarray_, CUR_TYPEINFO_NAME, _Typeinfo))); \
     symnew.data.function.def = (struct STB_CONCAT(CUR_PARSER_NAME, _AST)*)ast; \
     *symnew.data.function.args = STB_CONCAT(STB_CONCAT3(dymarray_, CUR_TYPEINFO_NAME, _Typeinfo), _new)(); \
     __VA_ARGS__; \
@@ -88,7 +88,7 @@ stb_lang_note_minor(checker->files.data[fil].name, checker->files.data[fil].cont
 
 #define STB_LANG_SET_SYMBOL(left, right) \
 { \
-    left = malloc(sizeof(right)); \
+    left = arena_alloc(&g_arena, sizeof(right)); \
     *((STB_CONCAT(CUR_TYPEINFO_NAME, _Symbol)*)left) = right; \
 }
 
@@ -242,7 +242,7 @@ typedef struct { \
     _fields; \
 }CUR_TYPEINFO_NAME; \
 STB_CONCAT(CUR_TYPEINFO_NAME, _ScopeL) STB_CONCAT(CUR_TYPEINFO_PREFIX, _scope_new)(STB_CONCAT(CUR_TYPEINFO_NAME, _ScopeL) paren, char *name){ \
-    STB_CONCAT(CUR_TYPEINFO_NAME, _Scope)* scope = malloc(sizeof(*scope)); \
+    STB_CONCAT(CUR_TYPEINFO_NAME, _Scope)* scope = arena_alloc(&g_arena, sizeof(*scope)); \
     scope->parent = paren; \
     scope->children = STB_CONCAT(STB_CONCAT3(dymarray_, CUR_TYPEINFO_NAME, _ScopeL), _new)(); \
     scope->symbols = STB_CONCAT(STB_CONCAT3(dymarray_, CUR_TYPEINFO_NAME, _Symbol), _new)(); \
@@ -301,7 +301,7 @@ STB_CONCAT(CUR_TYPEINFO_NAME, _Symbol) STB_CONCAT(CUR_TYPEINFO_PREFIX, _symbol_f
     return (STB_CONCAT(CUR_TYPEINFO_NAME, _Symbol)){.typeinfo = {.ptrnum=-1}}; \
 } \
 CUR_TYPEINFO_NAME *STB_CONCAT(CUR_TYPEINFO_PREFIX, _init)(CUR_PARSER_NAME *parser) { \
-    CUR_TYPEINFO_NAME *checker = malloc(sizeof(*checker)); \
+    CUR_TYPEINFO_NAME *checker = arena_alloc(&g_arena, sizeof(*checker)); \
     checker->cursor = 0; \
     checker->head = GetLinkedListHead((*parser), STB_CONCAT(CUR_PARSER_NAME, _AST)); \
     checker->tail = checker->head; \

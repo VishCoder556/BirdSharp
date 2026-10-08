@@ -118,7 +118,7 @@ while (parser->cursor < parser->tokens.datalen) { \
     if (next_bp <= binding_power) { \
         break; \
     } \
-    STB_CONCAT(CUR_PARSER_NAME, _AST) *parent = malloc(sizeof(*parent)); \
+    STB_CONCAT(CUR_PARSER_NAME, _AST) *parent = arena_alloc(&g_arena, sizeof(*parent)); \
     STB_CONCAT(CUR_TOKENIZER_NAME, _Token) op_token = next_tok; \
     if (0){}__VA_ARGS__ else {break;}; \
 \
@@ -168,7 +168,7 @@ int STB_CONCAT(CUR_PARSER_PREFIX, _binding_power)(STB_CONCAT(CUR_TOKENIZER_NAME,
     return 0; \
 }; \
 CUR_PARSER_NAME *STB_CONCAT(CUR_PARSER_PREFIX, _init)(CUR_PREPROCESSOR_NAME *processor) { \
-    CUR_PARSER_NAME *parser = malloc(sizeof(*parser)); \
+    CUR_PARSER_NAME *parser = arena_alloc(&g_arena, sizeof(*parser)); \
     parser->cursor = 0; \
     parser->tokens = processor->tokens; \
     InitLinkedList((*parser), STB_CONCAT(CUR_PARSER_NAME, _AST)); \
@@ -353,7 +353,7 @@ typedef struct { \
 
 #define STB_LANG_AST_LITERAL(typ, token) \
 ({ \
-    STB_CONCAT(CUR_PARSER_NAME, _AST) *_n = malloc(sizeof(*_n)); \
+    STB_CONCAT(CUR_PARSER_NAME, _AST) *_n = arena_alloc(&g_arena, sizeof(*_n)); \
     _n->typeinfo = (STB_CONCAT(CUR_TYPEINFO_NAME, _Typeinfo)){.type = STB_LANG_TYPEINFO_NONE}; \
     _n->type = typ; \
     _n->value = token.value; \
@@ -373,7 +373,7 @@ typedef struct { \
 
 #define STB_LANG_AST(...) \
 ({ \
-    STB_CONCAT(CUR_PARSER_NAME, _AST) *_n = malloc(sizeof(*_n)); \
+    STB_CONCAT(CUR_PARSER_NAME, _AST) *_n = arena_alloc(&g_arena, sizeof(*_n)); \
     *_n = (STB_CONCAT(CUR_PARSER_NAME, _AST)){__VA_ARGS__}; \
     _n->offset = offset; \
     _n->file = file; \
@@ -383,7 +383,7 @@ typedef struct { \
 
 #define STB_LANG_AST_FUNCALL(typ, name, params) \
 ({ \
-    STB_CONCAT(CUR_PARSER_NAME, _AST) *_n = malloc(sizeof(*_n)); \
+    STB_CONCAT(CUR_PARSER_NAME, _AST) *_n = arena_alloc(&g_arena, sizeof(*_n)); \
     _n->typeinfo = (STB_CONCAT(CUR_TYPEINFO_NAME, _Typeinfo)){.type = STB_LANG_TYPEINFO_NONE}; \
     _n->type = typ; \
     _n->value = name.value; \

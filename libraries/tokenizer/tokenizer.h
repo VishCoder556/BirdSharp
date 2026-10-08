@@ -32,7 +32,7 @@ STB_CONCAT(STB_CONCAT3(dymarray_, CUR_TOKENIZER_NAME, _Token), _add)(&tokenizer-
 #define STB_LANG_ALPHA(typ, ...) \
     if (isalpha(c) || c == '_') { \
         int valcap = 100, vallen = 0; \
-        char *val = malloc(valcap); \
+        char *val = arena_alloc(&g_arena, valcap); \
         if (val == NULL){ \
             stb_lang_error_minor(tokenizer->file.name, tokenizer->file.contents, tokenizer->cursor, "IdentifierError", "Could not tokenize identifier"); \
         }; \
@@ -51,7 +51,7 @@ STB_CONCAT(STB_CONCAT3(dymarray_, CUR_TOKENIZER_NAME, _Token), _add)(&tokenizer-
 #define STB_LANG_NUM(typ, ...) \
     if (isdigit(c)) { \
         int valcap = 100, vallen = 0; \
-        char *val = malloc(valcap); \
+        char *val = arena_alloc(&g_arena, valcap); \
         if (val == NULL){ \
             stb_lang_error_minor(tokenizer->file.name, tokenizer->file.contents, tokenizer->cursor, "IntegerError", "Could not tokenize number"); \
         }; \
@@ -70,7 +70,7 @@ STB_CONCAT(STB_CONCAT3(dymarray_, CUR_TOKENIZER_NAME, _Token), _add)(&tokenizer-
 #define STB_LANG_STRING(ch, typ) \
 if (c == ch){ \
     int valcap = 100, vallen = 0; \
-    char *val = malloc(valcap); \
+    char *val = arena_alloc(&g_arena, valcap); \
     if (val == NULL){ \
         stb_lang_error_minor(tokenizer->file.name, tokenizer->file.contents, tokenizer->cursor, "StringError", "Could not tokenize string"); \
     }; \

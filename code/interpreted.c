@@ -42,7 +42,7 @@ if (left.type == IR_INT && right.type == IR_INT){ \
     total.type = IR_INT; \
     char str[16]; \
     snprintf(str, 16, "%d", atoi(left.value) op atoi(right.value)); \
-    total.value = strdup(str); \
+    total.value = arena_strdup(&g_arena, str); \
 }else { \
 } \
 if (instr->dest->type == IR_REG){ \
@@ -57,7 +57,7 @@ STB_LANG_NEW_CODEGEN(
         // v0:0, a0.... = 1...
     ),
     STB_LANG_CODEGEN_INIT(
-        gen->regs = malloc(sizeof(*gen->regs));
+        gen->regs = arena_alloc(&g_arena, sizeof(*gen->regs));
         *gen->regs = dymarray_Lang_IR_Operand_new();
         gen->active = 1;
     ),

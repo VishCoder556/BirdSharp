@@ -24,7 +24,7 @@ void stb_lang_error_major_global_underlying(char *type, char *fmt, ...){
     va_start(args, fmt);
 
     int addcap = 256;
-    char *add = malloc(addcap);
+    char *add = arena_alloc(&g_arena, addcap);
     if (add == NULL){
         printf("\x1b[1;31m%s\x1b[0m: %s\n", "ErrorGeneratorError", "Not enough space to generate errors");
         exit(-1);
@@ -64,7 +64,7 @@ void stb_lang_note_minor(char *file, char *contents, int offset, char *fmt, ...)
     va_start(args, fmt);
 
     int addcap = 256;
-    char *add = malloc(addcap);
+    char *add = arena_alloc(&g_arena, addcap);
     if (add == NULL){
         printf("\x1b[1;31m%s\x1b[0m: %s\n", "ErrorGeneratorError", "Not enough space to generate errors");
         exit(-1);
@@ -90,7 +90,7 @@ void stb_lang_note_minor(char *file, char *contents, int offset, char *fmt, ...)
         if (contents[i] == '\n') {row++;col=i;last=i;};
         if (contents[i] == '\0') {break;};
     };
-    char *line = strdup(contents + col);
+    char *line = arena_strdup(&g_arena, contents + col);
     char *oldline = line;
     if (line[0] == '\n'){line++;}
 
@@ -134,7 +134,7 @@ void stb_lang_error_minor_underlying(char *file, char *contents, int offset, cha
     va_start(args, fmt);
 
     int addcap = 256;
-    char *add = malloc(addcap);
+    char *add = arena_alloc(&g_arena, addcap);
     if (add == NULL){
         printf("\x1b[1;31m%s\x1b[0m: %s\n", "ErrorGeneratorError", "Not enough space to generate errors");
         exit(-1);
@@ -160,7 +160,7 @@ void stb_lang_error_minor_underlying(char *file, char *contents, int offset, cha
         if (contents[i] == '\n') {row++;col=i;last=i;};
         if (contents[i] == '\0') {break;};
     };
-    char *line = strdup(contents + col);
+    char *line = arena_strdup(&g_arena, contents + col);
     char *oldline = line;
     if (line[0] == '\n'){line++;}
 

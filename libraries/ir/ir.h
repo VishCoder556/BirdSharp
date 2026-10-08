@@ -69,7 +69,7 @@ STB_LANG_IR_RUN(ast->right);
 
 
 #define STB_LANG_IR_OPERAND(typ, val) ({ \
-    STB_CONCAT(CUR_IR_NAME, _Operand) *op = malloc(sizeof(*op)); \
+    STB_CONCAT(CUR_IR_NAME, _Operand) *op = arena_alloc(&g_arena, sizeof(*op)); \
     op->type = typ; \
     op->value = val; \
     op->phys = -1; \
@@ -78,7 +78,7 @@ STB_LANG_IR_RUN(ast->right);
     op; \
 })
 #define STB_LANG_IR_OPERAND_EXTRA(typ, val, ...) ({ \
-    STB_CONCAT(CUR_IR_NAME, _Operand) *op = malloc(sizeof(*op)); \
+    STB_CONCAT(CUR_IR_NAME, _Operand) *op = arena_alloc(&g_arena, sizeof(*op)); \
     op->type = typ; \
     op->value = val; \
     op->extr = __VA_ARGS__; \
@@ -150,12 +150,12 @@ typedef struct { \
     fields; \
 }CUR_IR_NAME; \
 char *STB_CONCAT(CUR_IR_PREFIX, _make_temp_reg_string)(Lang_IR *ir) { \
-    char *str = malloc(16); \
+    char *str = arena_alloc(&g_arena, 16); \
     snprintf(str, 16, "t%d", ir->temp_number++); \
     return str; \
 } \
 char *STB_CONCAT(CUR_IR_PREFIX, _make_temp_label_name)(Lang_IR *ir) { \
-    char *str = malloc(20); \
+    char *str = arena_alloc(&g_arena, 20); \
     snprintf(str, 20, "%d", ir->label_count++); \
     return str; \
 } \

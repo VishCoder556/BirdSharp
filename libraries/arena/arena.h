@@ -449,4 +449,6 @@ void arena_trim(Arena *a){
     a->end->next = NULL;
 }
 
+Arena g_arena = {0};
+
 #endif // ARENA_IMPLEMENTATION
