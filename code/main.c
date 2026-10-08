@@ -11,6 +11,10 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+
+#define ARENA_IMPLEMENTATION
+#include "../libraries/arena/arena.h"
+
 #include "../libraries/error/error.h"
 #include "../libraries/tokenizer/tokenizer.h"
 #include "../libraries/preprocessor/preprocessor.h"
@@ -21,6 +25,7 @@
 #include "../libraries/driver/driver.h"
 #include "../libraries/regalloc/regalloc.h"
 #include "../libraries/optimizer/optimizer.h"
+
 
 
 dymarray_typenew(char, 300, 40); // For codegen
@@ -270,11 +275,24 @@ if (strcmp(data, "scope.flat") == 0){ \
     STB_LANG_PARSER_ADVANCE(); \
 }else if (strcmp(data, "import") == 0){ \
     if (token.type == TOKEN_ID){ \
-         dymarray_String_add(&linker_data.modules, token.value); \
+        char *str = malloc(200); \
+        strncpy(str, "", 200); \
+        int grace = 1; \
+        while (token.type == TOKEN_ID && grace == 1){ \
+            strcat(str, token.value); \
+            STB_LANG_PARSER_ADVANCE(); \
+            if (token.type == TOKEN_DOT){ \
+                strcat(str, "."); \
+                grace = 1; \
+                STB_LANG_PARSER_ADVANCE(); \
+                continue; \
+            } \
+            if (grace == 1) grace = 0; \
+        } \
+         dymarray_String_add(&linker_data.modules, str); \
     }else { \
         STB_LANG_PARSER_ERROR_MINOR(token.offset, token.file, "InlineIRError", "Unexpected argument to mode \"import\" (expected identifier)"); \
     }; \
-    STB_LANG_PARSER_ADVANCE(); \
 }else if (strcmp(data, "export.global") == 0){ \
     if (token.type == TOKEN_ID){ \
          dymarray_String_add(&linker_data.exports, token.value); \
@@ -2402,7 +2420,20 @@ int main(int argc, char **argv){
     lang_comp_data_from_file(input_file, -1, 0, 1, "main.o");
     for (int i=0; i<linker_data.modules.datalen; i++){
         char *str = malloc(100);
-        snprintf(str, 100, "%s%s.lang", input_file_dir, linker_data.modules.data[i]);
+        snprintf(str, 100, "%s", input_file_dir);
+        char *prntstr = strdup(linker_data.modules.data[i]);
+        for (int i=0; i<(int)strlen(prntstr); i++){
+            char ch = prntstr[i];
+            if (ch == '.'){
+                ch = '/';
+            };
+            int ln = strlen(str);
+            str[ln] = ch;
+            str[ln + 1] = '\0';
+        }
+        strcat(str, ".bsh");
+
+        // snprintf(str, 100, "%s%s.bsh", input_file_dir, linker_data.modules.data[i]);
         char *str2 = malloc(100);
         snprintf(str2, 100, "%s.o", linker_data.modules.data[i]);
             // Only temporary

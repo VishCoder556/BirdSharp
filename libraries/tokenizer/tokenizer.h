@@ -231,5 +231,4 @@ skip: \
     return 0; \
 } \
 
-
 #endif
