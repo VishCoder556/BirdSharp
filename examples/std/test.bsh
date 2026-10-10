@@ -1,0 +1,6 @@
+#!export.global println
+#!include "examples/include/std.bsh"
+
+void println(string a){
+    printf("%s\n", a)
+}

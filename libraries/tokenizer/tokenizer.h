@@ -8,12 +8,16 @@
 // Some hacky macro stuff
 #define STB_CONCAT_RAW(a, b) a##b
 #define STB_CONCAT3_RAW(a, b, c) a##b##c
+#define STB_CONCAT4_RAW(a, b, c, d) a##b##c##d
 
 #define STB_CONCAT_EVAL(a, b) STB_CONCAT_RAW(a, b)
 #define STB_CONCAT3_EVAL(a, b, c) STB_CONCAT3_RAW(a, b, c)
+#define STB_CONCAT4_EVAL(a, b, c, d) STB_CONCAT3_RAW(a, b, c, d)
 
 #define STB_CONCAT(a, b) STB_CONCAT_EVAL(a, b)
 #define STB_CONCAT3(a, b, c) STB_CONCAT3_EVAL(a, b, c)
+#define STB_CONCAT4(a, b, c, d) STB_CONCAT3_EVAL(a, b, c, d)
+
 
 int stb_lang_tokenizer_get_length(FILE *file){
     // We use fseek and ftell
