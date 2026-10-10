@@ -232,6 +232,10 @@ STB_LANG_NEW_CODEGEN(
                 STB_LANG_EMIT_CODE("\tstr %s, [%s]\n", val_reg, addr_reg);
             }
         )
+        STB_LANG_CODEGEN_CASE(IR_SYSCALL3,
+            STB_LANG_EMIT_CODE("\tmov x16, #%s\n", instr->left->value);
+            STB_LANG_EMIT_CODE("\tsvc #128\n");
+        )
         STB_LANG_CODEGEN_2CASES(IR_ASSIGN, IR_DECL,
             ;if (instr->dest->type == IR_VAR){
                 int size = STB_CONCAT(CUR_CODEGEN_PREFIX, _get_size_from_var)(gen, instr->dest->value);

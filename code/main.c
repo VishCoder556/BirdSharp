@@ -291,6 +291,13 @@ if (strcmp(data, "scope.flat") == 0){ \
         STB_LANG_PARSER_ERROR_MINOR(token.offset, token.file, "InlineIRError", "Unexpected argument to mode \"export.global\" (expected identifier)"); \
     }; \
     STB_LANG_PARSER_ADVANCE(); \
+}else if (strcmp(data, "export.structure") == 0){ \
+    if (token.type == TOKEN_ID){ \
+         dymarray_String_add(&linker_data.structexports, token.value); \
+    }else { \
+        STB_LANG_PARSER_ERROR_MINOR(token.offset, token.file, "InlineIRError", "Unexpected argument to mode \"export.structure\" (expected identifier)"); \
+    }; \
+    STB_LANG_PARSER_ADVANCE(); \
 } \
 return STB_LANG_AST(.type=AST_MODE, .typeinfo={.type=-1, .ptrnum=-1}, .value=arena_strdup(&g_arena, data), .left=NULL, .right=NULL);
 
@@ -317,6 +324,7 @@ typedef struct {
     dymarray_String libpaths;
     dymarray_String modules;
     dymarray_String exports;
+    dymarray_String structexports;
 }Lang_LinkerData;
 Lang_LinkerData linker_data = (Lang_LinkerData){0};
 
@@ -493,6 +501,11 @@ Lang_Parser_AST *parser_parse_ir_inline(Lang_Parser *parser){
             STB_LANG_PARSER_ADVANCE();
             STB_LANG_GET_AST_EXPR(a, 10);
             return STB_LANG_AST(.type=AST_IR_INSTRUCTION, .typeinfo={.type=-1, .ptrnum=-1}, .value=instr, .left=STB_LANG_AS_AST(a), .right=NULL);
+        }else if (strcmp(instr, "syscall3") == 0){
+            STB_LANG_PARSER_ADVANCE();
+            STB_LANG_SAVE(tknval, token.value);
+            STB_LANG_PARSER_EXPECT(TOKEN_NUM);
+            return STB_LANG_AST(.type=AST_IR_INSTRUCTION, .typeinfo={.type=-1, .ptrnum=-1}, .value=instr, .left=(void*)tknval, .right=NULL);
         }
 
     }else if (token.type == TOKEN_NOT){
@@ -784,6 +797,15 @@ STB_LANG_PARSE_EXPR(
         )
         )
         left = STB_LANG_AST_LITERAL(AST_INT, match_token);
+        if (token.type == TOKEN_ID){
+            if (token.value[0] == 'x'){
+                int str2len = (int)strlen(token.value) * 8/5;
+                char *str2 = arena_alloc(&g_arena, str2len);
+                snprintf(str2, str2len, "%ld", strtol(token.value+1, NULL, 16));
+                left->value = str2;
+                STB_LANG_PARSER_ADVANCE();
+            }
+        }
     )
     STB_LANG_MATCH_TOKEN(TOKEN_STRING,  
         STB_LANG_PARSER_ADVANCE();
@@ -1220,7 +1242,7 @@ STB_LANG_NEW_TYPEINFO(
                 }
                 STB_LANG_REGISTER_VARIABLE(STB_LANG_OF_AST(ast->left, value), ast->typeinfo)
             }
-            }else if (strcmp(instr, "call")){
+            }else if (strcmp(instr, "call") && strcmp(instr, "syscall3")){
                 STB_LANG_EXPAND_LHS();
                 STB_LANG_EXPAND_RHS();
             }
@@ -1287,7 +1309,8 @@ STB_LANG_NEW_IR(
         IR_LOAD,
         IR_STORE,
         IR_BSHL,
-        IR_BSHR
+        IR_BSHR,
+        IR_SYSCALL3
     ),
     STB_LANG_IR_CASES(
         STB_LANG_IR_CASE(AST_FUNCDECL,
@@ -1442,6 +1465,8 @@ STB_LANG_ITERATE_LINKED_LIST(ast->left, _args, Lang_Parser_AST,
                     }
                 }
                 STB_LANG_IR_EMIT(IR_CALL, STB_LANG_IR_OPERAND(IR_VAR, funcname), NULL, NULL, .typeinfo=(Lang_TypeInfo_Typeinfo){.type = origidx});
+            }else if (strcmp(ast->value, "syscall3") == 0){
+                STB_LANG_IR_EMIT(IR_SYSCALL3, NULL, STB_LANG_IR_OPERAND(IR_INT, (char*)ast->left), NULL);
             }else if (strcmp(ast->value, "ret") == 0){
                 STB_CONCAT(CUR_IR_NAME, _Operand) *operand = STB_LANG_IR_LHS(ast);
                 STB_LANG_IR_EMIT(IR_RET, NULL, operand, NULL);
@@ -2175,6 +2200,9 @@ STB_LANG_NEW_REGALLOC(
         STB_LANG_REGALLOC_CASE(IR_CALL,
         )
 
+        STB_LANG_REGALLOC_CASE(IR_SYSCALL3,
+        )
+
         STB_LANG_REGALLOC_CASE(IR_RET,
         )
 
@@ -2219,6 +2247,7 @@ void STB_LANG_INVOKE_DRIVER(Lang_CodeGen_Arm *gen, char *output){
     char exec_instr[500];
     char exec_path[100];
     snprintf(exec_path, 100, "__res/%s", output);
+    // STB_LANG_DRIVER_RUN_SCRIPT("cat %s", asm_path);
     strncpy(exec_instr, "clang -O0 -arch arm64 -c %s -o %s", 500);
     STB_LANG_DRIVER_RUN_SCRIPT(exec_instr, asm_path, exec_path);
     // STB_LANG_DRIVER_RUN_SCRIPT(exec_instr, asm_path, exec_path);
@@ -2248,7 +2277,6 @@ void STB_LANG_DRIVER_LINK(char *objs, char *exec_path){
     STB_LANG_DRIVER_RUN_SCRIPT(exec_instr, objs, exec_path);
 }
 
-// STB_LANG_DRIVER_RUN_SCRIPT("cat %s", asm_path);
 
 // STB_LANG_DRIVER_RUN_SCRIPT( "yasm -f macho64 %s -o %s", asm_path, obj_path);
 // STB_LANG_DRIVER_RUN_SCRIPT(
@@ -2380,6 +2408,7 @@ int main(int argc, char **argv){
     linker_data.frameworks = dymarray_String_new();
     linker_data.libraries = dymarray_String_new();
     linker_data.libpaths = dymarray_String_new();
+    linker_data.structexports = dymarray_String_new();
 
     char *input_file = NULL;
     char *output_file = NULL;
@@ -2459,10 +2488,16 @@ int main(int argc, char **argv){
         // lang_comp_data_from_file(str, -1, 0, 0, str2, NULL);
         Lang_TypeInfo *typn = lang_comp_data_from_file(str, 8, 0, 1, str2, NULL, 1);
         Lang_TypeInfo_Scope *scope = (Lang_TypeInfo_Scope*)typn->root_scope;
-        for (int v=0; v<linker_data.exports.datalen; v++){ // To fix later, slow
-            for (int i=0; i<scope->symbols.datalen; i++){
-                if (scope->symbols.data[i].kind == STB_LANG_SYMBOL_FUNCTION){
+        for (int i=0; i<scope->symbols.datalen; i++){
+            if (scope->symbols.data[i].kind == STB_LANG_SYMBOL_FUNCTION){
+                for (int v=0; v<linker_data.exports.datalen; v++){ // To fix later, slow
                     if (strcmp(scope->symbols.data[i].name, linker_data.exports.data[v]) == 0){
+                        dymarray_Lang_TypeInfo_Symbol_add(&((Lang_TypeInfo_Scope*)typnf->root_scope)->symbols, scope->symbols.data[i]);
+                    }
+                }
+            }else if (scope->symbols.data[i].kind == STB_LANG_SYMBOL_DATA){
+                for (int v=0; v<linker_data.structexports.datalen; v++){ // To fix later, slow
+                    if (strcmp(scope->symbols.data[i].name, linker_data.structexports.data[v]) == 0){
                         dymarray_Lang_TypeInfo_Symbol_add(&((Lang_TypeInfo_Scope*)typnf->root_scope)->symbols, scope->symbols.data[i]);
                     }
                 }
@@ -2479,14 +2514,13 @@ int main(int argc, char **argv){
         free(str2);
     }
     lang_comp_data_from_file(input_file, -1, 0, 1, "main.o", typnf, 0);
-    arena_free(&g_arena);
 
 
     STB_LANG_DRIVER_LINK(newone, output_file);
+    arena_free(&g_arena);
     STB_LANG_DRIVER_RUN_SCRIPT("rm -rf __res");
     free(newone);
 
-// STB_LANG_DRIVER_LINK(Lang_CodeGen_Arm *gen, char *objs);
 
     // printf("-------- ASSEMBLY CODE --------\n");
     // printf("%s", gen->code.data);

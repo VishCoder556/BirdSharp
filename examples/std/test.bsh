@@ -1,6 +1,50 @@
-#!export.global println
+#!export.global InitWindow
+#!export.global WindowShouldClose
+#!export.global BeginDrawing
+#!export.global EndDrawing
+#!export.global CloseWindow
+#!export.global SetTargetFPS
+#!export.global ClearBackground
+#!export.global DrawText
+#!export.global DrawCircle
+#!export.global IsKeyPressed
+#!export.global IsKeyDown
+#!export.global DrawRectangleGradientV
+#!export.global DrawRectangleGradientH
+#!export.structure Color
 #!include "examples/include/std.bsh"
 
-void println(string a){
-    printf("%s\n", a)
+
+#!linker.framework "Cocoa"
+#!linker.framework "OpenGL"
+#!linker.framework "IOKit"
+#!linker.framework "CoreVideo"
+#!linker.framework "AppKit"
+#!linker.library "raylib"
+
+struct Color{
+    char r
+    char g
+    char b
+    char a
 }
+
+
+void InitWindow(int width, int height, string title);
+int WindowShouldClose();
+void BeginDrawing();
+void EndDrawing();
+void CloseWindow();
+void SetTargetFPS(int fps)
+void ClearBackground(struct Color color);
+void DrawText(string text, int posX, int posY, int fontSize, struct Color color);
+
+
+void DrawCircle(int centerX, int centerY, float radius, struct Color color);
+
+
+int IsKeyPressed(int key);
+int IsKeyDown(int key);
+
+void DrawRectangleGradientV(int posX, int posY, int width, int height, struct Color color1, struct Color color2);
+void DrawRectangleGradientH(int posX, int posY, int width, int height, struct Color color1, struct Color color2);

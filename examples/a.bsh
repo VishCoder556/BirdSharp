@@ -1,6 +1,55 @@
+#!include "examples/include/std.bsh"
 #!import std.test
 
+
 int main(){
-    println("Hello World")
+    InitWindow(800, 600, "Hello World")
+    SetTargetFPS(60);
+
+
+    struct Color color
+    color.r = 0xFF
+    color.g = 0xFF
+    color.b = 0xFF
+    color.a = 0xFF
+
+    struct Color color2
+    color2.r = 0x00
+    color2.g = 0x00
+    color2.b = 0x00
+    color2.a = 0xFF
+
+    struct Color redColor
+    redColor.r = 0xFF
+    redColor.g = 0x00
+    redColor.b = 0x00
+    redColor.a = 0xFF
+
+    struct Color greenColor
+    greenColor.r = 0x00
+    greenColor.g = 0xFF
+    greenColor.b = 0x00
+    greenColor.a = 0xFF
+
+    struct Color blueColor
+    blueColor.r = 0x00
+    blueColor.g = 0x00
+    blueColor.b = 0xFF
+    blueColor.a = 0xFF
+
+
+    while (WindowShouldClose() == 0){
+        BeginDrawing()
+
+        ClearBackground(color)
+
+
+        DrawRectangleGradientV(0, 0, 800, 600, greenColor, blueColor)
+
+        // DrawText("Welcome to BirdSharp!", 70, 200, 60, color2)
+
+        EndDrawing()
+    }
+    CloseWindow()
     return 0
 }

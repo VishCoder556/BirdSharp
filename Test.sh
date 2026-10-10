@@ -8,7 +8,7 @@ for file in tests/inputs/*; do
     base_name=$(basename "$file" .bsh)
     echo "[INFO] Testing Example \""$base_name"\""
 
-    ./exes/main $file
+    ./exes/bsh $file
     if [ $? -ne 0 ]; then
         echo -e "${RED}[ERROR] Compiler crashed${CLEAR}"
         continue
