@@ -1,37 +1,5 @@
-#!include "examples/include/std.bsh"
-
-#!linker.framework "Cocoa"
-#!linker.framework "OpenGL"
-#!linker.framework "IOKit"
-#!linker.framework "CoreVideo"
-#!linker.framework "AppKit"
-#!linker.library "raylib"
-
-struct Color{
-    char r
-    char g
-    char b
-    char a
-}
-
-
-void InitWindow(int width, int height, string title);
-int WindowShouldClose();
-void BeginDrawing();
-void EndDrawing();
-void CloseWindow();
-void SetTargetFPS(int fps)
-void ClearBackground(struct Color color);
-void DrawText(string text, int posX, int posY, int fontSize, struct Color color);
-
-
-void DrawCircle(int centerX, int centerY, float radius, struct Color color);
-
-
-int IsKeyPressed(int key);
-int IsKeyDown(int key);
-
-void DrawRectangleGradientV(int posX, int posY, int width, int height, struct Color color1, struct Color color2);
+#!import std.raylib
+// In order for this code to work the working dir has to have a std/raylib.bsh file.
 
 
 int main(){

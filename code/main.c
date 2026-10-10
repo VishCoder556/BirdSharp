@@ -197,13 +197,7 @@ dymarray_typenew(String, 10, 1);
 #define CUR_TYPEINFO_NAME Lang_TypeInfo
 #define CUR_TYPEINFO_PREFIX lang_typeinfo
 
-
-#define STB_LANG_PARSER_MODE() \
-STB_LANG_PARSER_ADVANCE(); \
-STB_LANG_PARSER_EXPECT(TOKEN_NOT); \
-char data[150]; \
-strncpy(data, "", 150); \
-int dot = 1; \
+#define STB_LANG_PARSER_PARSE_MODE() \
 while (1){ \
     if (dot == 0){ \
         break; \
@@ -227,7 +221,15 @@ while (1){ \
         } \
         break; \
     }; \
-}; \
+};
+
+#define STB_LANG_PARSER_MODE() \
+STB_LANG_PARSER_ADVANCE(); \
+STB_LANG_PARSER_EXPECT(TOKEN_NOT); \
+char data[150]; \
+strncpy(data, "", 150); \
+int dot = 1; \
+STB_LANG_PARSER_PARSE_MODE(); \
 if (strcmp(data, "scope.flat") == 0){ \
     parser->scope_flat = 1; \
 }else if (strcmp(data, "scope.structured") == 0){ \
@@ -298,6 +300,16 @@ if (strcmp(data, "scope.flat") == 0){ \
         STB_LANG_PARSER_ERROR_MINOR(token.offset, token.file, "InlineIRError", "Unexpected argument to mode \"export.structure\" (expected identifier)"); \
     }; \
     STB_LANG_PARSER_ADVANCE(); \
+}else if (strcmp(data, "if") == 0){ \
+    if (token.type == TOKEN_ID){ \
+        strncpy(data, "", 150); \
+        dot = 1; \
+        STB_LANG_PARSER_PARSE_MODE(); \
+        STB_LANG_PARSE_STATEMENT_LIST(stmnts, TOKEN_LB, -1, TOKEN_RB); \
+        return STB_LANG_AST(.type=AST_MODE_IF, .typeinfo={.type=-1, .ptrnum=-1}, .value=arena_strdup(&g_arena, data), .left=NULL, .right=STB_LANG_LINKED_LIST(stmnts)); \
+    }else { \
+        STB_LANG_PARSER_ERROR_MINOR(token.offset, token.file, "InlineIRError", "Unexpected argument to mode \"if\" (expected identifier)"); \
+    }; \
 } \
 return STB_LANG_AST(.type=AST_MODE, .typeinfo={.type=-1, .ptrnum=-1}, .value=arena_strdup(&g_arena, data), .left=NULL, .right=NULL);
 
@@ -403,7 +415,8 @@ STB_LANG_ASTS(
     AST_IR_INSTRUCTION,
     AST_IR_LIST,
     AST_FLOAT,
-    AST_SIZEOF
+    AST_SIZEOF,
+    AST_MODE_IF
 ),
 STB_LANG_PARSER_FIELDS(
     int scope_flat;
@@ -954,13 +967,28 @@ STB_LANG_TYPEINFO_SIZE(
 
 STB_LANG_NEW_TYPEINFO(
     STB_LANG_TYPEINFO_FIELDS(
-        int decl_auto;
-        int casting;
+        char casting;
+        char decl_auto;
+
+        char cast_implicit;
+        char cast_pointer;
+        char mode_intrp;
+        char scope_flat;
+
+            // declaration.var.infer, [declaration.var.explicit]
+            // casting.strict, [casting.implicit], casting.pointer
+            // mode.interpreted, [mode.compiled]
+            // scope.flat, [scope.structured]
     ),
     STB_LANG_TYPEINFO_INIT(
         checker->decl_auto = 0;
         checker->casting = 1; // Default is implicit
 // 0: default, 1: implicit, 2: pointer, 3: pointer and implicit
+
+        checker->cast_implicit = 1;
+        checker->cast_pointer = 0;
+        checker->mode_intrp = 0;
+        checker->scope_flat = 0;
     ),
     STB_LANG_TYPEINFO_SUFFIX(
         
@@ -985,20 +1013,64 @@ STB_LANG_NEW_TYPEINFO(
                     checker->decl_auto = 0;
                 }else if (strcmp(ast->value, "casting.strict") == 0){
                     checker->casting = 0;
+                    checker->cast_implicit = 0;
+                    checker->cast_pointer = 0;
                 }else if (strcmp(ast->value, "casting.implicit") == 0){
+                    checker->cast_implicit = 1;
                     if (checker->casting == 2 || checker->casting == 3){
                         checker->casting = 3;
                     }else {
                         checker->casting = 1;
                     }
                 }else if (strcmp(ast->value, "casting.pointer") == 0){
+                    checker->cast_pointer = 1;
                     if (checker->casting == 1 || checker->casting == 3){
                         checker->casting = 3;
                     }else {
                         checker->casting = 2;
                     }
+                }else if (strcmp(ast->value, "mode.interpreted") == 0){
+                    checker->mode_intrp = 1;
+                }else if (strcmp(ast->value, "mode.compiled") == 0){
+                    checker->mode_intrp = 0;
+                }else if (strcmp(ast->value, "scope.flat") == 0){
+                    checker->scope_flat = 1;
+                }else if (strcmp(ast->value, "scope.structured") == 0){
+                    checker->scope_flat = 0;
                 }
+
             }
+        )
+        STB_LANG_TYPEINFO_CASE(AST_MODE_IF, 
+            int expand = 0;
+            char *data = ast->value;
+
+            if (strcmp(data, "declaration.var.infer") == 0){
+                expand = checker->decl_auto;
+            }else if (strcmp(data, "declaration.var.explicit") == 0){
+                expand = !checker->decl_auto;
+            }else if (strcmp(data, "casting.strict") == 0){
+                expand = !(checker->cast_implicit && checker->cast_pointer);
+            }else if (strcmp(data, "casting.implicit") == 0){
+                expand = checker->cast_implicit;
+            }else if (strcmp(data, "casting.pointer") == 0){
+                expand = checker->cast_pointer;
+            }else if (strcmp(data, "mode.interpreted") == 0){
+                expand = checker->mode_intrp;
+            }else if (strcmp(data, "mode.compiled") == 0){
+                expand = !checker->mode_intrp;
+            }else if (strcmp(data, "scope.flat") == 0){
+                expand = checker->scope_flat;
+            }else if (strcmp(data, "scope.structured") == 0){
+                expand = !checker->scope_flat;
+            }else {
+                STB_LANG_TYPEINFO_ERROR_MINOR(ast->offset, ast->file, "ModeIfError", "Attempting to mode if on non-existent mode");
+            }
+            if (expand == 1){
+                ast->left = (struct Lang_Parser_AST*)1;
+                STB_LANG_EXPAND_BLOCK();
+            }
+
         )
         STB_LANG_TYPEINFO_CASE(AST_FUNCDECL, 
             STB_LANG_MAKE_SCOPE(ast->value);
@@ -1338,7 +1410,14 @@ STB_LANG_NEW_IR(
             if (ast->value != NULL){
                 if (strcmp(ast->value, "mode.interpreted") == 0){
                     ir->interpreted = 1;
+                }else if (strcmp(ast->value, "mode.compiled") == 0){
+                    ir->interpreted = 0;
                 }
+            }
+        )
+        STB_LANG_IR_CASE(AST_MODE_IF,
+            if (ast->left == (struct Lang_Parser_AST*)1){
+                STB_LANG_IR_BLOCK()
             }
         )
         STB_LANG_IR_CASE(AST_FUNCDEF,

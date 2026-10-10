@@ -1,15 +1,12 @@
 #!include "examples/include/std.bsh"
 
-struct A{
-    int a
-    int b
+#!if casting.implicit {
+    #!casting.strict
 }
 
 int main(){
-    printf("sizeof char = %d\n", sizeof(char))
-    printf("sizeof int = %d\n", sizeof(int))
-    printf("sizeof i32 = %d\n", sizeof(i32))
-    printf("sizeof i64 = %d\n", sizeof(i64))
-    printf("sizeof struct A(int, int) = %d\n", sizeof(struct A))
-    return 0
+#!if casting.implicit {
+    printf("Hello World\n")
+}
+return 0
 }
