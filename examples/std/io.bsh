@@ -1,6 +1,2 @@
-#!export.global println
+#!export.global printf
 #!include "examples/include/std.bsh"
-
-void println(string a){
-    printf("%s\n", a)
-}

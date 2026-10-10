@@ -402,7 +402,8 @@ STB_LANG_ASTS(
     AST_BSHR,
     AST_IR_INSTRUCTION,
     AST_IR_LIST,
-    AST_FLOAT
+    AST_FLOAT,
+    AST_SIZEOF
 ),
 STB_LANG_PARSER_FIELDS(
     int scope_flat;
@@ -760,6 +761,15 @@ STB_LANG_PARSE_EXPR(
             left = STB_LANG_AST(.type = AST_DEREF, .left = STB_LANG_AS_AST(exp), .right=NULL, .middle=NULL);
             goto skip;
         }
+        if (strcmp(match_token.value, "sizeof") == 0){
+            STB_LANG_PARSER_ADVANCE();
+            STB_LANG_PARSER_EXPECT(TOKEN_LP);
+            STB_LANG_GET_TYPEINFO(old){
+            };
+            STB_LANG_PARSER_EXPECT(TOKEN_RP);
+            left = STB_LANG_AST(.type = AST_SIZEOF, .left = NULL, .right=NULL, .middle=NULL, .typeinfo=old);
+            goto skip;
+        }
 
         STB_LANG_SAVE(name, match_token)
         if (!STB_LANG_PARSER_IN_BOUNDS()){
@@ -921,7 +931,8 @@ STB_LANG_TYPEINFO_SIZE(
     switch(typeinfo.type){
         case AST_TYPE_VOID: return 0;
         case AST_TYPE_INT: return 8;
-        case AST_TYPE_I32: return 8;
+        case AST_TYPE_I32: return 4;
+        case AST_TYPE_I64: return 8;
         case AST_TYPE_FLOAT: return 4;
         case AST_TYPE_CHAR: return 1;
         case AST_TYPE_STRING: return 8;
@@ -1122,6 +1133,12 @@ STB_LANG_NEW_TYPEINFO(
             STB_LANG_EXPAND_RHS();
             STB_LANG_TYPEINFO_ASSUME_TYPE(STB_LANG_RHS(ast)->typeinfo);
             STB_LANG_EXPECT_TYPE_EQ(ast, STB_LANG_RHS(ast));
+        )
+        STB_LANG_TYPEINFO_CASE(AST_SIZEOF,
+            char *size = arena_alloc(&g_arena, 100);
+            snprintf(size, 100, "%d", STB_LANG_LOOKUP_SIZE(checker->root_scope, &ast->typeinfo));
+            ast->type = AST_INT;
+            ast->value = size;
         )
         STB_LANG_TYPEINFO_CASE(AST_FUNCALL,
             STB_LANG_EXPAND_ARGS();
@@ -2244,12 +2261,11 @@ void STB_LANG_INVOKE_DRIVER(Lang_CodeGen_Arm *gen, char *output){
     char *asm_path = "__res/main.s";
     STB_LANG_DRIVER_WRITE_DATA(asm_path);
 
-    char exec_instr[500];
     char exec_path[100];
     snprintf(exec_path, 100, "__res/%s", output);
     // STB_LANG_DRIVER_RUN_SCRIPT("cat %s", asm_path);
-    strncpy(exec_instr, "clang -O0 -arch arm64 -c %s -o %s", 500);
-    STB_LANG_DRIVER_RUN_SCRIPT(exec_instr, asm_path, exec_path);
+    STB_LANG_DRIVER_RUN_SCRIPT("clang -O0 -arch arm64 -c %s -o %s", asm_path, exec_path);
+    // STB_LANG_DRIVER_RUN_SCRIPT( "yasm -f macho64 %s -o %s", asm_path, exec_path);
     // STB_LANG_DRIVER_RUN_SCRIPT(exec_instr, asm_path, exec_path);
     STB_LANG_DRIVER_RUN_SCRIPT("rm %s", asm_path);
 }
@@ -2278,7 +2294,6 @@ void STB_LANG_DRIVER_LINK(char *objs, char *exec_path){
 }
 
 
-// STB_LANG_DRIVER_RUN_SCRIPT( "yasm -f macho64 %s -o %s", asm_path, obj_path);
 // STB_LANG_DRIVER_RUN_SCRIPT(
 //     "ld -arch x86_64 %s -o %s -e _main -w -lSystem -syslibroot $(xcrun --show-sdk-path) -platform_version macos 11.0 11.0", 
 //     obj_path, exec_path

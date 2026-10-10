@@ -1,0 +1,5 @@
+sizeof char = 1
+sizeof int = 8
+sizeof i32 = 4
+sizeof i64 = 8
+sizeof struct A(int, int) = 16

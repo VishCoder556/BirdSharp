@@ -1,0 +1,6 @@
+#!include "examples/include/std.bsh"
+
+int main(){
+    printf("%d\n", sizeof(int))
+    return 0
+}
