@@ -1,0 +1,6 @@
+#!include "examples/include/std.bsh"
+
+int main(){
+    printf("Running on file %s %d:%d at function %s\n", $file, $line, $col, $function)
+    return 0
+}

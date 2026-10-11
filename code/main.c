@@ -5,6 +5,8 @@
  *
 */
 
+char *BIRDSHARP_VERSION = "BirdSharp pre-release";
+
 #define STB_LANG_ERROR_IMPLEMENTATION
 
 
@@ -71,7 +73,8 @@ STB_LANG_NEW_TOKENIZER(
         TOKEN_DOT,
         TOKEN_HASH,
         TOKEN_BSHR,
-        TOKEN_BSHL
+        TOKEN_BSHL,
+        TOKEN_DOLLAR
     ),
     STB_LANG_TOKEN_REPR(
         case TOKEN_LP: return "(";
@@ -106,6 +109,7 @@ STB_LANG_NEW_TOKENIZER(
         case TOKEN_HASH: return "#";
         case TOKEN_BSHR: return ">>";
         case TOKEN_BSHL: return "<<";
+        case TOKEN_DOLLAR: return "$";
     ),
     STB_LANG_SIMPLE_CASES(
         STB_LANG_TOKEN_CHAR('(', TOKEN_LP)
@@ -123,6 +127,7 @@ STB_LANG_NEW_TOKENIZER(
         STB_LANG_TOKEN_CHAR('^', TOKEN_CARET)
         STB_LANG_TOKEN_CHAR('.', TOKEN_DOT)
         STB_LANG_TOKEN_CHAR('#', TOKEN_HASH)
+        STB_LANG_TOKEN_CHAR('$', TOKEN_DOLLAR)
         STB_LANG_SKIP('\n')
     ),
     STB_LANG_ALPHA(TOKEN_ID)
@@ -301,12 +306,17 @@ if (strcmp(data, "scope.flat") == 0){ \
     }; \
     STB_LANG_PARSER_ADVANCE(); \
 }else if (strcmp(data, "if") == 0){ \
+    char not = 0; \
+    if (token.type == TOKEN_NOT){ \
+        not = 1; \
+        STB_LANG_PARSER_ADVANCE(); \
+    }; \
     if (token.type == TOKEN_ID){ \
         strncpy(data, "", 150); \
         dot = 1; \
         STB_LANG_PARSER_PARSE_MODE(); \
         STB_LANG_PARSE_STATEMENT_LIST(stmnts, TOKEN_LB, -1, TOKEN_RB); \
-        return STB_LANG_AST(.type=AST_MODE_IF, .typeinfo={.type=-1, .ptrnum=-1}, .value=arena_strdup(&g_arena, data), .left=NULL, .right=STB_LANG_LINKED_LIST(stmnts)); \
+        return STB_LANG_AST(.type=AST_MODE_IF, .typeinfo={.type=-1, .ptrnum=-1}, .value=arena_strdup(&g_arena, data), .left=(void*)(long)(int)not, .right=STB_LANG_LINKED_LIST(stmnts)); \
     }else { \
         STB_LANG_PARSER_ERROR_MINOR(token.offset, token.file, "InlineIRError", "Unexpected argument to mode \"if\" (expected identifier)"); \
     }; \
@@ -416,20 +426,24 @@ STB_LANG_ASTS(
     AST_IR_LIST,
     AST_FLOAT,
     AST_SIZEOF,
-    AST_MODE_IF
+    AST_MODE_IF,
+    AST_ASSERT
 ),
 STB_LANG_PARSER_FIELDS(
     int scope_flat;
     Lang_Parser_ASTList flat_scope;
+    char *funcname;
 ),
 STB_LANG_PARSER_INIT(
     parser->scope_flat = 0;
     InitLinkedList(parser->flat_scope, Lang_Parser_AST);
+    parser->funcname = NULL;
 ),
 STB_LANG_PARSER_SUFFIX(
     if (GetLinkedListHead(parser->flat_scope, Lang_Parser_AST) != NULL){
         if (GetLinkedListLen(parser->flat_scope, Lang_Parser_AST) > 0){
             Lang_Parser_AST *ast = STB_LANG_AST(.type=AST_FUNCDEF, .typeinfo={.type=-1, .ptrnum=-1}, .value="main", .left=NULL, .right=STB_LANG_LINKED_LIST(parser->flat_scope));
+            parser->funcname = "main";
             AppendToLinkedList((*parser), STB_CONCAT(CUR_PARSER_NAME, _AST), *ast);
         }
     }
@@ -635,6 +649,7 @@ STB_LANG_PARSE_BODY(
         }
 
             if (token.type == TOKEN_LB) {
+                parser->funcname = "main";
                 STB_LANG_PARSE_STATEMENT_LIST(stmnts, TOKEN_LB, -1, TOKEN_RB)
                 return STB_LANG_AST(.type=AST_FUNCDEF, .typeinfo=typeinfo, .value=func_name.value, .left=STB_LANG_LINKED_LIST(params), .right=STB_LANG_LINKED_LIST(stmnts));
             }else {
@@ -685,6 +700,18 @@ STB_LANG_PARSE_AST(
         STB_LANG_OPERAND(expr, lang_parser_parse_expr(parser, 0));
         return STB_LANG_AST(.type=AST_RET, .value=NULL, .left=STB_LANG_AS_AST(expr), .middle=NULL, .right=NULL);
     )
+    STB_LANG_IF_TOKEN(TOKEN_DOLLAR,
+        STB_LANG_PARSER_ADVANCE();
+        STB_LANG_IF_VALUE(TOKEN_ID, "assert", 
+            STB_LANG_PARSER_ADVANCE();
+            STB_LANG_PARSER_EXPECT(TOKEN_LP);
+            STB_LANG_SAVE(err, token.value);
+            STB_LANG_PARSER_EXPECT(TOKEN_STRING);
+            STB_LANG_PARSER_EXPECT(TOKEN_RP);
+
+            return STB_LANG_AST(.type=AST_ASSERT, .value=err, .left=NULL, .middle=NULL, .right=NULL);
+        )
+    )
     STB_LANG_GET_TYPEINFO(typeinfo){
         goto assign_decl_end;
     maybe_assign:
@@ -732,11 +759,59 @@ not_funcall:
     }
 ),
 STB_LANG_PARSE_EXPR(
+    STB_LANG_MATCH_TOKEN(TOKEN_DOLLAR,  
+        STB_LANG_PARSER_ADVANCE();
+        STB_LANG_SAVE(typid, token.value);
+        left = STB_LANG_AST_LITERAL(AST_STRING, token);
+        STB_LANG_PARSER_EXPECT(TOKEN_ID);
+        if (strcmp(typid, "platform") == 0){
+            left->value = arena_alloc(&g_arena, 100);
+
+        #if defined(_WIN32)
+            snprintf(left->value, 100, "Windows");
+        #elif defined(_WIN64)
+            snprintf(left->value, 100, "Windows");
+        #elif defined(__APPLE__) || defined(__MACH__)
+            snprintf(left->value, 100, "MacOS");
+        #elif defined(__linux__)
+            snprintf(left->value, 100, "Linux");
+        #elif defined(__unix__) || defined(__unix)
+            snprintf(left->value, 100, "POSIX");
+        #else
+            snprintf(left->value, 100, "Unknown Operating System");
+        #endif
+            goto skip;
+        }else if (strcmp(typid, "version") == 0){
+            left->value = BIRDSHARP_VERSION;
+        }else if (strcmp(typid, "file") == 0){
+            left->value = parser->files.data[match_token.file].name;
+        }else if (strcmp(typid, "line") == 0){
+            left->type = AST_INT;
+
+            char *str = arena_alloc(&g_arena, 100);
+            snprintf(str, 100, "%d", stb_lang_get_position(parser->files.data[match_token.file].contents, match_token.offset, NULL).row);
+            left->value = str;
+        }else if (strcmp(typid, "col") == 0){
+            left->type = AST_INT;
+
+            char *str = arena_alloc(&g_arena, 100);
+            snprintf(str, 100, "%d", stb_lang_get_position(parser->files.data[match_token.file].contents, match_token.offset, NULL).col);
+            left->value = str;
+        }else if (strcmp(typid, "function") == 0){
+            if (parser->funcname == NULL){
+                left->value = "(unknown)";
+            }else {
+                left->value = parser->funcname;
+            }
+        }else {
+            STB_LANG_PARSER_ERROR_MINOR(match_token.offset, match_token.file, "IntrinsicError", "Unknown Intrinsic");
+        }
+    )
     STB_LANG_MATCH_TOKEN(TOKEN_BAND,  
-        STB_LANG_PARSER_ERROR_MINOR(token.offset, token.file, "SyntaxError", "Wrong operator for referencing (use `ref(x)` instead)"); \
+        STB_LANG_PARSER_ERROR_MINOR(token.offset, token.file, "SyntaxError", "Wrong operator for referencing (use `ref(x)` instead)");
     )
     STB_LANG_MATCH_TOKEN(TOKEN_MUL,  
-        STB_LANG_PARSER_ERROR_MINOR(token.offset, token.file, "SyntaxError", "Wrong operator for dereferencing (use `deref(x)` instead)"); \
+        STB_LANG_PARSER_ERROR_MINOR(token.offset, token.file, "SyntaxError", "Wrong operator for dereferencing (use `deref(x)` instead)");
     )
     STB_LANG_MATCH_TOKEN(TOKEN_DOT,  
         STB_LANG_PARSER_ADVANCE();
@@ -975,6 +1050,12 @@ STB_LANG_NEW_TYPEINFO(
         char mode_intrp;
         char scope_flat;
 
+        char os_windows;
+        char os_mac;
+        char os_linux;
+        char os_unknown;
+        char os_posix;
+
             // declaration.var.infer, [declaration.var.explicit]
             // casting.strict, [casting.implicit], casting.pointer
             // mode.interpreted, [mode.compiled]
@@ -989,6 +1070,27 @@ STB_LANG_NEW_TYPEINFO(
         checker->cast_pointer = 0;
         checker->mode_intrp = 0;
         checker->scope_flat = 0;
+
+        checker->os_windows = 0;
+        checker->os_mac = 0;
+        checker->os_linux = 0;
+        checker->os_unknown = 0;
+        checker->os_posix = 0;
+
+
+    #if defined(_WIN32)
+        checker->os_windows = 1;
+    #elif defined(_WIN64)
+        checker->os_windows = 1;
+    #elif defined(__APPLE__) || defined(__MACH__)
+        checker->os_mac = 1;
+    #elif defined(__linux__)
+        checker->os_linux = 1;
+    #elif defined(__unix__) || defined(__unix)
+        checker->os_posix = 1;
+    #else
+        checker->os_unknown = 1;
+    #endif
     ),
     STB_LANG_TYPEINFO_SUFFIX(
         
@@ -1005,6 +1107,9 @@ STB_LANG_NEW_TYPEINFO(
         }
     ),
     STB_LANG_TYPEINFO_CASES(
+        STB_LANG_TYPEINFO_CASE(AST_ASSERT,
+            STB_LANG_TYPEINFO_ERROR_MINOR(ast->offset, ast->file, "AssertError", "Assert Failed: %s", ast->value);
+        )
         STB_LANG_TYPEINFO_CASE(AST_MODE,
             if (ast->value != NULL){
                 if (strcmp(ast->value, "declaration.var.infer") == 0){
@@ -1062,12 +1167,27 @@ STB_LANG_NEW_TYPEINFO(
             }else if (strcmp(data, "scope.flat") == 0){
                 expand = checker->scope_flat;
             }else if (strcmp(data, "scope.structured") == 0){
-                expand = !checker->scope_flat;
+                expand = checker->scope_flat;
+            }else if (strcmp(data, "platform.windows") == 0){
+                expand = checker->os_windows;
+            }else if (strcmp(data, "platform.mac") == 0){
+                expand = checker->os_mac;
+            }else if (strcmp(data, "platform.linux") == 0){
+                expand = checker->os_linux;
+            }else if (strcmp(data, "platform.posix") == 0){
+                expand = checker->os_posix;
+            }else if (strcmp(data, "platform.unknown") == 0){
+                expand = checker->os_unknown;
             }else {
                 STB_LANG_TYPEINFO_ERROR_MINOR(ast->offset, ast->file, "ModeIfError", "Attempting to mode if on non-existent mode");
             }
+
+            if (ast->left == (void*)1){
+                expand = !expand;
+            }
+
             if (expand == 1){
-                ast->left = (struct Lang_Parser_AST*)1;
+                ast->typeinfo.type = 100;
                 STB_LANG_EXPAND_BLOCK();
             }
 
@@ -1416,7 +1536,7 @@ STB_LANG_NEW_IR(
             }
         )
         STB_LANG_IR_CASE(AST_MODE_IF,
-            if (ast->left == (struct Lang_Parser_AST*)1){
+            if (ast->typeinfo.type == 100){
                 STB_LANG_IR_BLOCK()
             }
         )

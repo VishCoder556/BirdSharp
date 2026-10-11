@@ -1,0 +1,1 @@
+Running on file tests/inputs/intrinsic.bsh 4:70 at function main

@@ -1,12 +1,8 @@
 #!include "examples/include/std.bsh"
 
-#!if casting.implicit {
-    #!casting.strict
-}
-
 int main(){
-#!if casting.implicit {
-    printf("Hello World\n")
+#!if !platform.windows {
+    $assert("Not on Windows")
 }
-return 0
+    return 0
 }
