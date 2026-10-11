@@ -32,11 +32,11 @@ The type system isn't exactly the same as C, and is more minimal.
 
 There's int (which is a 64-BIT integer). This is not the same as a C int.
 
-The real equivalent to a C int is actually i32, a 32-bit integer. There's also i64, which is the same as int really, but is used if you want to emphasize the integer size really.
+The real equivalent to a C int is actually i32, a 32-bit integer. There's also i64, which is another name for a 64-bit integer. It's basically the same thing, but can be used if you want to emphasize the size.
 
 Char, float, and void are all there as well. Unsigned is there, but it doesn't really do anything.
 
-BirdSharp also comes with a string type, that represents a char* in C.
+BirdSharp also comes with a string type, that represents a char* in C. It doesn't manage the string memory.
 
 If you don't want to use the string type, you can also define a string as a pointer to a character, like the C syntax. Unlike C, pointers are ptr<type>, so an int* would be ptr<int>.
 You can nest pointers inside of pointers, like ptr<ptr<int>> which is an int**. Pointers can be dereferenced with deref(a) and referenced with ref(a)
@@ -55,6 +55,20 @@ int numbers[5]
 
 BirdSharp's unique array syntax makes it much easier for the parser.
 
+
+To summarize all types,
+
+| Type | Size | Description |
+|---|---|---|
+| `int` | 8 bytes | Default integer
+| `i32` | 4 bytes | 32-bit integer
+| `i64` | 8 bytes | 64-bit integer
+| `char` | 1 byte | Character
+| `float` | 4 bytes | Floating-point number
+| `string` | 8 bytes | Character pointer
+| `ptr<T>` | 8 bytes | Typed pointer
+| `void` | -- | No value, return type
+
 ### Structures
 
 Structures are similar to C as well, except for typedef struct, which isn't allowed;
@@ -72,3 +86,63 @@ struct Point p
 p.x = 10
 p.y = 20
 ```
+
+## 3. Variables
+
+### Type-based declarations
+
+Type-based declarations are just like C
+
+```c
+int count = 0;
+string message = "Hello"
+```
+
+### Inferring Types
+
+You can add inferred declarations using a mode called:
+
+```c
+#!declaration.var.infer
+```
+
+This mode can be turned off using
+
+```c
+#!declaration.var.explicit
+```
+
+You can use the declaration inferred mode as follows:
+
+```c
+#!declaration.var.infer
+a = 10
+```
+
+Usually, this syntax would not be allowed. A is not being given a type, and the variable doesn't exist, so it's not a reinitialization. However, since infer mode is on, the compiler looks at the right hand side (10) and infers that the variable is an integer.
+
+## 4. Expressions & Operators
+
+| Operator | Description | Example |
+|---|---|---|
+| `+` | Adds two expressions together | `5 + 3`
+| `-` | Subtracts two expressions | `5 - 3`
+| `*` | Multiplies two expressions | `5 * 3`
+| `/` | Divides two expressions | `5 / 3` (by the way, this followers integer arithmetic, so the following expression would actually just be 1)
+| `%` | Gets the modulus of two expressions (remainder of a division operation) | `5 % 3`
+| `<` | Checks if the leftmost expression is less than the rightmost expression | `5 < 3`
+| `<=` | Checks if the leftmost expression is less than or equal to the rightmost expression | `5 <= 3`
+| `>` | Checks if the leftmost expression is greater than the rightmost expression | `5 > 3`
+| `>=` | Checks if the leftmost expression is greater than or equal to the rightmost expression | `5 >= 3`
+| `==` | Checks if two expressions are equal | `5 == 3`
+| `!=` | Checks if two expressions are not equal | `5 != 3`
+| `|` | Does a binary or operation on two expressions | `5 | 3`
+| `&` | Does a binary and operation on two expressions | `5 & 3`
+| `||` | Checks if either expression is truthy | `5 || 3`
+| `&&` | Checks if both expressions is truthy | `5 && 3`
+| `^` | Gets the XOR of two expressions | `5 ^ 3`
+| `<<` | Does a bit shift to the left by n amounts of bits (specified by righthand side) | `5 << 3`
+| `>>` | Does a bit shift to the right by n amounts of bits (specified by righthand side) | `5 >> 3`
+| `!` | Inverts the truthiness of a value | `!5`
+
+The truthiness of an expression is if an expression is not equal to zero. A negative number is truthy because it is not 0. Likewise, positive numbers are also truthy.
