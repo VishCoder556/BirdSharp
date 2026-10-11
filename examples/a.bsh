@@ -1,8 +1,10 @@
 #!include "examples/include/std.bsh"
 
+
 int main(){
-#!if !platform.windows {
-    $assert("Not on Windows")
+#!if $platform.windows { // Intrinsic test
+    printf("No support for Windows yet\n")
 }
+
     return 0
 }

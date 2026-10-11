@@ -306,23 +306,23 @@ if (strcmp(data, "scope.flat") == 0){ \
     }; \
     STB_LANG_PARSER_ADVANCE(); \
 }else if (strcmp(data, "if") == 0){ \
-    char not = 0; \
-    if (token.type == TOKEN_NOT){ \
-        not = 1; \
-        STB_LANG_PARSER_ADVANCE(); \
-    }; \
     if (token.type == TOKEN_ID){ \
         strncpy(data, "", 150); \
         dot = 1; \
         STB_LANG_PARSER_PARSE_MODE(); \
         STB_LANG_PARSE_STATEMENT_LIST(stmnts, TOKEN_LB, -1, TOKEN_RB); \
-        return STB_LANG_AST(.type=AST_MODE_IF, .typeinfo={.type=-1, .ptrnum=-1}, .value=arena_strdup(&g_arena, data), .left=(void*)(long)(int)not, .right=STB_LANG_LINKED_LIST(stmnts)); \
+        return STB_LANG_AST(.type=AST_MODE_IF, .typeinfo={.type=-1, .ptrnum=-1}, .value=arena_strdup(&g_arena, data), .left=NULL, .right=STB_LANG_LINKED_LIST(stmnts)); \
     }else { \
-        STB_LANG_PARSER_ERROR_MINOR(token.offset, token.file, "InlineIRError", "Unexpected argument to mode \"if\" (expected identifier)"); \
+        STB_LANG_GET_AST_EXPR(mid, 0); \
+        STB_LANG_PARSE_STATEMENT_LIST(stmnts, TOKEN_LB, -1, TOKEN_RB); \
+        return STB_LANG_AST(.type=AST_MODE_IF, .typeinfo={.type=-1, .ptrnum=-1}, .value=NULL, .left=NULL, .right=STB_LANG_LINKED_LIST(stmnts), .middle=STB_LANG_AS_AST(mid)); \
     }; \
+}else if (strcmp(data, "error") == 0){ \
+    STB_LANG_SAVE(err, token.value); \
+    STB_LANG_PARSER_EXPECT(TOKEN_STRING); \
+    return STB_LANG_AST(.type=AST_ERROR, .value=err, .left=NULL, .middle=NULL, .right=NULL); \
 } \
 return STB_LANG_AST(.type=AST_MODE, .typeinfo={.type=-1, .ptrnum=-1}, .value=arena_strdup(&g_arena, data), .left=NULL, .right=NULL);
-
 
 #define CUR_PARSER_NAME Lang_Parser
 #define CUR_PARSER_PREFIX lang_parser
@@ -427,7 +427,9 @@ STB_LANG_ASTS(
     AST_FLOAT,
     AST_SIZEOF,
     AST_MODE_IF,
-    AST_ASSERT
+    AST_ERROR,
+    AST_MODE_CONDITION,
+    AST_NOT
 ),
 STB_LANG_PARSER_FIELDS(
     int scope_flat;
@@ -700,18 +702,6 @@ STB_LANG_PARSE_AST(
         STB_LANG_OPERAND(expr, lang_parser_parse_expr(parser, 0));
         return STB_LANG_AST(.type=AST_RET, .value=NULL, .left=STB_LANG_AS_AST(expr), .middle=NULL, .right=NULL);
     )
-    STB_LANG_IF_TOKEN(TOKEN_DOLLAR,
-        STB_LANG_PARSER_ADVANCE();
-        STB_LANG_IF_VALUE(TOKEN_ID, "assert", 
-            STB_LANG_PARSER_ADVANCE();
-            STB_LANG_PARSER_EXPECT(TOKEN_LP);
-            STB_LANG_SAVE(err, token.value);
-            STB_LANG_PARSER_EXPECT(TOKEN_STRING);
-            STB_LANG_PARSER_EXPECT(TOKEN_RP);
-
-            return STB_LANG_AST(.type=AST_ASSERT, .value=err, .left=NULL, .middle=NULL, .right=NULL);
-        )
-    )
     STB_LANG_GET_TYPEINFO(typeinfo){
         goto assign_decl_end;
     maybe_assign:
@@ -759,11 +749,29 @@ not_funcall:
     }
 ),
 STB_LANG_PARSE_EXPR(
+    STB_LANG_MATCH_TOKEN(TOKEN_NOT,  
+        STB_LANG_PARSER_ADVANCE();
+        left = STB_LANG_AST_LITERAL(AST_NOT, token);
+        left->value = NULL;
+        left->left = STB_LANG_AS_AST(lang_parser_parse_expr(parser, 0));
+        goto skip;
+    )
     STB_LANG_MATCH_TOKEN(TOKEN_DOLLAR,  
         STB_LANG_PARSER_ADVANCE();
         STB_LANG_SAVE(typid, token.value);
         left = STB_LANG_AST_LITERAL(AST_STRING, token);
-        STB_LANG_PARSER_EXPECT(TOKEN_ID);
+        STB_LANG_PARSER_ADVANCE();
+        if (token.type == TOKEN_DOT){
+            STB_LANG_PARSER_BACK();
+            char data[150];
+            strncpy(data, "", 150);
+            int dot = 1;
+            STB_LANG_PARSER_PARSE_MODE();
+            left = STB_LANG_AST(.type = AST_MODE_CONDITION, .value=data, .left=NULL, .right=NULL, .middle=NULL);
+            // STB_LANG_PARSER_ERROR_MINOR(match_token.offset, match_token.file, "IntrinsicError", "Unknown Intrinsic");
+            goto skip;
+        }
+        STB_LANG_PARSER_BACK();
         if (strcmp(typid, "platform") == 0){
             left->value = arena_alloc(&g_arena, 100);
 
@@ -780,7 +788,6 @@ STB_LANG_PARSE_EXPR(
         #else
             snprintf(left->value, 100, "Unknown Operating System");
         #endif
-            goto skip;
         }else if (strcmp(typid, "version") == 0){
             left->value = BIRDSHARP_VERSION;
         }else if (strcmp(typid, "file") == 0){
@@ -804,8 +811,11 @@ STB_LANG_PARSE_EXPR(
                 left->value = parser->funcname;
             }
         }else {
-            STB_LANG_PARSER_ERROR_MINOR(match_token.offset, match_token.file, "IntrinsicError", "Unknown Intrinsic");
+            STB_LANG_PARSER_ERROR_MINOR(token.offset, token.file, "IntrinsicError", "Unknown intrinsic");
         }
+
+        STB_LANG_PARSER_EXPECT(TOKEN_ID);
+        goto skip;
     )
     STB_LANG_MATCH_TOKEN(TOKEN_BAND,  
         STB_LANG_PARSER_ERROR_MINOR(token.offset, token.file, "SyntaxError", "Wrong operator for referencing (use `ref(x)` instead)");
@@ -876,7 +886,9 @@ STB_LANG_PARSE_EXPR(
         STB_LANG_PARSER_ADVANCE();
         STB_LANG_GET_AST_EXPR(l, 2);
         STB_LANG_PARSER_EXPECT(TOKEN_RP);
-        left = STB_LANG_AST(.type = AST_EXPR, .left = STB_LANG_AS_AST(l))
+        // printf("a%d, %s, %d\n", token.type == TOKEN_OR, token.value, binding_power);
+        left = STB_LANG_AST(.type = AST_EXPR, .left = STB_LANG_AS_AST(l));
+        goto skip;
     )
     STB_LANG_MATCH_TOKEN(TOKEN_NUM,  
         STB_LANG_SAVE(prev_t_token, token);
@@ -1039,6 +1051,9 @@ STB_LANG_TYPEINFO_SIZE(
     }
 )
 
+#define lang_evaluate_comptime_op(op) \
+return lang_evaluate_comptime(checker, (Lang_Parser_AST*)ast->left) op lang_evaluate_comptime(checker, (Lang_Parser_AST*)ast->right);
+
 
 STB_LANG_NEW_TYPEINFO(
     STB_LANG_TYPEINFO_FIELDS(
@@ -1095,6 +1110,89 @@ STB_LANG_NEW_TYPEINFO(
     STB_LANG_TYPEINFO_SUFFIX(
         
     ),
+    STB_LANG_TYPEINFO_FUNCTIONS(
+        int lang_evaluate_comptime(Lang_TypeInfo *checker, Lang_Parser_AST *ast){
+            if (ast->type == AST_INT){
+                return atoi(ast->value);
+            }else if (ast->type == AST_EXPR){
+                return lang_evaluate_comptime(checker, (Lang_Parser_AST*)ast->left);
+            }else if (ast->type == AST_LT){
+                lang_evaluate_comptime_op(<)
+            }else if (ast->type == AST_LTE){
+                lang_evaluate_comptime_op(<=)
+            }else if (ast->type == AST_GT){
+                lang_evaluate_comptime_op(>)
+            }else if (ast->type == AST_GTE){
+                lang_evaluate_comptime_op(>=)
+            }else if (ast->type == AST_ADD){
+                lang_evaluate_comptime_op(+)
+            }else if (ast->type == AST_SUB){
+                lang_evaluate_comptime_op(-)
+            }else if (ast->type == AST_MUL){
+                lang_evaluate_comptime_op(*)
+            }else if (ast->type == AST_DIV){
+                lang_evaluate_comptime_op(/)
+            }else if (ast->type == AST_MODULO){
+                lang_evaluate_comptime_op(%)
+            }else if (ast->type == AST_EQ){
+                lang_evaluate_comptime_op(==)
+            }else if (ast->type == AST_NEQ){
+                lang_evaluate_comptime_op(!=)
+            }else if (ast->type == AST_OR){
+                lang_evaluate_comptime_op(||)
+            }else if (ast->type == AST_AND){
+                lang_evaluate_comptime_op(&&)
+            }else if (ast->type == AST_BAND){
+                lang_evaluate_comptime_op(&)
+            }else if (ast->type == AST_BOR){
+                lang_evaluate_comptime_op(|)
+            }else if (ast->type == AST_XOR){
+                lang_evaluate_comptime_op(^)
+            }else if (ast->type == AST_BSHL){
+                lang_evaluate_comptime_op(<<)
+            }else if (ast->type == AST_BSHR){
+                lang_evaluate_comptime_op(>>)
+            }else if (ast->type == AST_NOT){
+                return !lang_evaluate_comptime(checker, (Lang_Parser_AST*)ast->left);
+            }else if (ast->type == AST_MODE_CONDITION){
+                if (strcmp(ast->value, "declaration.var.infer") == 0){
+                    return checker->decl_auto;
+                }else if (strcmp(ast->value, "declaration.var.explicit") == 0){
+                    return !checker->decl_auto;
+                }else if (strcmp(ast->value, "casting.strict") == 0){
+                    return !(checker->cast_implicit && checker->cast_pointer);
+                }else if (strcmp(ast->value, "casting.implicit") == 0){
+                    return checker->cast_implicit;
+                }else if (strcmp(ast->value, "casting.pointer") == 0){
+                    return checker->cast_pointer;
+                }else if (strcmp(ast->value, "mode.interpreted") == 0){
+                    return checker->mode_intrp;
+                }else if (strcmp(ast->value, "mode.compiled") == 0){
+                    return !checker->mode_intrp;
+                }else if (strcmp(ast->value, "scope.flat") == 0){
+                    return checker->scope_flat;
+                }else if (strcmp(ast->value, "scope.structured") == 0){
+                    return !checker->scope_flat;
+                }else if (strcmp(ast->value, "platform.windows") == 0){
+                    return checker->os_windows;
+                }else if (strcmp(ast->value, "platform.mac") == 0){
+                    return checker->os_mac;
+                }else if (strcmp(ast->value, "platform.linux") == 0){
+                    return checker->os_linux;
+                }else if (strcmp(ast->value, "platform.posix") == 0){
+                    return checker->os_posix;
+                }else if (strcmp(ast->value, "platform.unknown") == 0){
+                    return checker->os_unknown;
+                }else {
+                    STB_LANG_TYPEINFO_ERROR_MINOR(ast->offset, ast->file, "CompileTimeError", "Could not parse #!if mode `%s`", ast->value);
+                }
+            }else {
+                STB_LANG_TYPEINFO_ERROR_MINOR(ast->offset, ast->file, "CompileTimeError", "Could not parse #!if constant expression");
+            }
+
+            return 0;
+        }
+    ),
     STB_LANG_TYPEINFO_CHECK_TYPES(
         if (left->typeinfo.ptrnum == 0 && right->typeinfo.ptrnum == 0){
             if (checker->casting == 1 || checker->casting == 3){
@@ -1107,8 +1205,8 @@ STB_LANG_NEW_TYPEINFO(
         }
     ),
     STB_LANG_TYPEINFO_CASES(
-        STB_LANG_TYPEINFO_CASE(AST_ASSERT,
-            STB_LANG_TYPEINFO_ERROR_MINOR(ast->offset, ast->file, "AssertError", "Assert Failed: %s", ast->value);
+        STB_LANG_TYPEINFO_CASE(AST_ERROR,
+            STB_LANG_TYPEINFO_ERROR_MINOR(ast->offset, ast->file, "CompileTimeError", "%s", ast->value);
         )
         STB_LANG_TYPEINFO_CASE(AST_MODE,
             if (ast->value != NULL){
@@ -1147,46 +1245,7 @@ STB_LANG_NEW_TYPEINFO(
             }
         )
         STB_LANG_TYPEINFO_CASE(AST_MODE_IF, 
-            int expand = 0;
-            char *data = ast->value;
-
-            if (strcmp(data, "declaration.var.infer") == 0){
-                expand = checker->decl_auto;
-            }else if (strcmp(data, "declaration.var.explicit") == 0){
-                expand = !checker->decl_auto;
-            }else if (strcmp(data, "casting.strict") == 0){
-                expand = !(checker->cast_implicit && checker->cast_pointer);
-            }else if (strcmp(data, "casting.implicit") == 0){
-                expand = checker->cast_implicit;
-            }else if (strcmp(data, "casting.pointer") == 0){
-                expand = checker->cast_pointer;
-            }else if (strcmp(data, "mode.interpreted") == 0){
-                expand = checker->mode_intrp;
-            }else if (strcmp(data, "mode.compiled") == 0){
-                expand = !checker->mode_intrp;
-            }else if (strcmp(data, "scope.flat") == 0){
-                expand = checker->scope_flat;
-            }else if (strcmp(data, "scope.structured") == 0){
-                expand = checker->scope_flat;
-            }else if (strcmp(data, "platform.windows") == 0){
-                expand = checker->os_windows;
-            }else if (strcmp(data, "platform.mac") == 0){
-                expand = checker->os_mac;
-            }else if (strcmp(data, "platform.linux") == 0){
-                expand = checker->os_linux;
-            }else if (strcmp(data, "platform.posix") == 0){
-                expand = checker->os_posix;
-            }else if (strcmp(data, "platform.unknown") == 0){
-                expand = checker->os_unknown;
-            }else {
-                STB_LANG_TYPEINFO_ERROR_MINOR(ast->offset, ast->file, "ModeIfError", "Attempting to mode if on non-existent mode");
-            }
-
-            if (ast->left == (void*)1){
-                expand = !expand;
-            }
-
-            if (expand == 1){
+            if (lang_evaluate_comptime(checker, (Lang_Parser_AST*)ast->middle) != 0){
                 ast->typeinfo.type = 100;
                 STB_LANG_EXPAND_BLOCK();
             }

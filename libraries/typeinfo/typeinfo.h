@@ -20,6 +20,8 @@
 #define STB_LANG_TYPEINFO_CHECK_TYPES(...) __VA_ARGS__
 #define STB_LANG_TYPEINFO_CUSTOM_ERROR(...) __VA_ARGS__
 
+#define STB_LANG_TYPEINFO_FUNCTIONS(...) __VA_ARGS__
+
 
 #define STB_LANG_TYPEINFO_ERROR_MINOR(where, fil, type, ...) \
 if (fil > checker->files.datalen){ \
@@ -227,7 +229,7 @@ STB_CONCAT(STB_CONCAT3(dymarray_, CUR_TYPEINFO_NAME, _ScopeL), _add)(&(news->chi
 curscope = (STB_CONCAT(CUR_TYPEINFO_NAME, _ScopeL))__VA_ARGS__;
 
 
-#define STB_LANG_NEW_TYPEINFO(_fields, code_init, code_suffix, typcheck, _cases) \
+#define STB_LANG_NEW_TYPEINFO(_fields, code_init, code_suffix, funs, typcheck, _cases) \
 typedef struct { \
     STB_CONCAT(CUR_PARSER_NAME, _AST) *head; \
     STB_CONCAT(CUR_PARSER_NAME, _AST) *tail; \
@@ -313,6 +315,7 @@ CUR_TYPEINFO_NAME *STB_CONCAT(CUR_TYPEINFO_PREFIX, _init)(CUR_PARSER_NAME *parse
     code_init; \
     return checker; \
 } \
+funs; \
 int a = 0; \
 void STB_CONCAT(CUR_TYPEINFO_PREFIX, _check_ast)(CUR_TYPEINFO_NAME *checker, STB_CONCAT(CUR_PARSER_NAME, _AST) *ast) { \
     if (ast == NULL){ \

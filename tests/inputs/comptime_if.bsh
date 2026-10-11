@@ -1,0 +1,9 @@
+#!include "examples/include/std.bsh"
+
+
+int main(){
+#!if !$scope.flat {
+    printf("Not in scope.flat\n")
+}
+    return 0
+}
