@@ -146,3 +146,139 @@ Usually, this syntax would not be allowed. A is not being given a type, and the 
 | `!` | Inverts the truthiness of a value | `!5`
 
 The truthiness of an expression is if an expression is not equal to zero. A negative number is truthy because it is not 0. Likewise, positive numbers are also truthy.
+
+## 5. Controlling the Flow
+
+Another important feature of a programming language is control flow. Examples of control flow in C include: if, else, while, return, and for.
+Control flow is important for Turing completeness. BirdSharp has a control flow similar to C.
+
+
+### If statements
+
+If statements accept an expression. If that expression is truthy (see #4 for more information on truthy expressions), then the inner block is ran. For example:
+
+```c
+if (1){
+    printf("Hello World\n")
+}
+```
+
+Since the expression 1 is truthy, the inner block is ran. The expression of an if statement has to be surrounded by parentheses. If you simply add an else block to the end, then you can create a block that is ran only and only if the expression in the if isn't truthy.
+
+```c
+if (0){
+    printf("0 is truthy!\n")
+}else {
+    printf("0 is not truthy!\n")
+}
+```
+
+BirdSharp does not currently support else ifs, but you can make them by putting an if block inside of an else block.
+
+### While Loops
+
+Loops are also an extremely important part of Turing completeness. A while loop is like a combination of an if statement and an infinite loop.
+
+```c
+int i = 0
+while (i < 10){
+    i = i + 1
+}
+```c
+
+In the preceding code, a variable called `i` is initialized as 0. Then, as long as this variable is less than 10, then the loop is ran, incrementing i. The code inside of the while loop runs 10 times.
+
+Looking at the syntax, while loops are also extremely similar to C while loops.
+
+### For Loops
+
+For loops currently do not exist in BirdSharp. If you look at the previous example of a while loop, you would notice that all of that could be simplified into the following C code:
+
+```c
+for (int i=0; i<10; i++){
+}
+```
+
+The reason this same equivalent cannot be added to BirdSharp is because, as mentioned earlier, the tokenizer doesn't even parse semicolons. This makes a custom type of for loop hard to think of.
+
+### Return Statements
+
+The next segment talks about functions, so adding returns here might sound a bit weird. This is mainly being done for formatting. Anyways, returns allow a function to return to the caller and return a value.
+
+As of right now, BirdSharp barely typechecks the returned value. Also as of right now, BirdSharp does not support `return` statements without an expression following it.
+
+```c
+return 5;
+```
+
+## 6. Functions
+
+### Function definitions
+
+Functions are like little helpers that can be called. They are defined, in BirdSharp, pretty similarly to C:
+
+```c
+int main(){
+
+}
+```
+
+Everything in BirdSharp must be inside of a function declaration, unless a certain mode is defined. This mode is:
+
+```c
+#!scope.flat
+```
+
+`#!scope.flat` allows you to put code that would belong inside of the main function (the entry point of the program), outside of the scope. Its effects can be countered using `#!scope.structured`. Here's an example of `#!scope.flat`:
+
+```c
+#!scope.flat
+printf("Hello World\n")
+```
+
+Usually, the printf would have to be inside of a function like `main`, but with #!scope.flat, that function is automatically generated.
+
+### Function declarations
+
+There are some times when you want the compiler to assume that a function exists. For example, when you use libc, the object files are linked, but the actual code has no idea about libc. You can teach it functions using a syntax similar to function definitions, just without the curly braces at the end.
+
+```c
+void printf(string fmt, ...);
+```
+
+
+### Parameters
+
+In the last example, you might have seen the parameters (the `string fmt, ...`). The `...` will be talked about soon, but for now, let's just talk about everything inside of the parantheses. They define an argument list. Each argument can have a type name and then the name of the parameter. No other syntaxes are accepted as of right now. Arguments are seperated by commas.
+
+```c
+(string fmt, int a)
+```
+
+### Variadic Arguments
+
+In the previous example, you might have seen the `...`. What exactly does that mean? This directive allows you to use an infinite amount of arguments. For example, usually the same declaration couldn't support both `printf("String\n")` and `printf("Number: %d\n", 1)`. Using variadic arguments, the compiler can assume that the ellipses are a placeholder for anywhere from 0 to infinite arguments depending on the function call.
+
+## 7. Pointers and Memory
+
+### ref()
+
+Referencing is a part of BirdSharp's syntax that is unique from C. Its C alternative is `&ptr`. `ref()` is used to avoid confusion with the binary and operand `&`.
+
+### deref()
+
+Dereferencing, just like referencing, has a different syntax than in C (compared to `*ptr`).
+
+### cast()
+
+Casting converts a value from one type to another. C follows a `(T)val` syntax, whereas BirdSharp follows a `cast(T, val)` syntax to avoid confusion.
+
+### sizeof()
+
+Sizeof allows you to get the size in bytes of any type.
+
+```c
+sizeof(int)
+```
+
+The preceding example's value is 8 in BirdSharp, for reasons as specified in Segment 2, the type system.
