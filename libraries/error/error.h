@@ -35,7 +35,7 @@ void stb_lang_error_major_global_underlying(char *type, char *fmt, ...){
     va_start(args, fmt);
 
     int addcap = 256;
-    char *add = arena_alloc(&g_arena, addcap);
+    char *add = malloc(addcap);
     if (add == NULL){
         printf("\x1b[1;31m%s\x1b[0m: %s\n", "ErrorGeneratorError", "Not enough space to generate errors");
         stb_lang_exit(-1);
@@ -55,6 +55,7 @@ void stb_lang_error_major_global_underlying(char *type, char *fmt, ...){
 
 
     printf("\x1b[1;31m%s\x1b[0m: %s\n", type, add);
+    free(add);
 }
 
 void stb_lang_error_hint(char *type, char *elaboration){
@@ -106,7 +107,7 @@ void stb_lang_note_minor(char *file, char *contents, int offset, char *fmt, ...)
     va_start(args, fmt);
 
     int addcap = 256;
-    char *add = arena_alloc(&g_arena, addcap);
+    char *add = malloc(addcap);
     if (add == NULL){
         printf("\x1b[1;31m%s\x1b[0m: %s\n", "ErrorGeneratorError", "Not enough space to generate errors");
         stb_lang_exit(-1);
@@ -138,6 +139,7 @@ void stb_lang_note_minor(char *file, char *contents, int offset, char *fmt, ...)
 
     // printf("\x1b[1;37m%s:%d:%d: \x1b[1;31m%s\x1b[0m: %s\n%s\n", file, row, col, type, add, line);
     printf("\x1b[1;37m%s:%d:%d: \x1b[38;5;208mnote\x1b[0m: %s\n%d |  %s\n", file, pos.row, pos.col, add, pos.row, line);
+    free(add);
     for (int i=0; i<count+1; i++){printf(" ");}
     printf("|  ");
     for (int i=0; i<pos.col; i++){printf(" ");}
@@ -157,7 +159,7 @@ void stb_lang_error_minor_underlying(char *file, char *contents, int offset, cha
     va_start(args, fmt);
 
     int addcap = 256;
-    char *add = arena_alloc(&g_arena, addcap);
+    char *add = malloc(addcap);
     if (add == NULL){
         printf("\x1b[1;31m%s\x1b[0m: %s\n", "ErrorGeneratorError", "Not enough space to generate errors");
         stb_lang_exit(-1);
@@ -206,6 +208,7 @@ void stb_lang_error_minor_underlying(char *file, char *contents, int offset, cha
     row++;
     // printf("\x1b[1;37m%s:%d:%d: \x1b[1;31m%s\x1b[0m: %s\n%s\n", file, row, col, type, add, line);
     printf("\x1b[1;37m%s:%d:%d: \x1b[1;31m%s\x1b[0m: %s\n%d |  %s\n", file, row, col, type, add, row, line);
+    free(add);
     for (int i=0; i<count+1; i++){printf(" ");}
     printf("|  ");
     for (int i=0; i<col; i++){printf(" ");}

@@ -651,7 +651,7 @@ STB_LANG_PARSE_BODY(
         }
 
             if (token.type == TOKEN_LB) {
-                parser->funcname = "main";
+                parser->funcname = func_name.value;
                 STB_LANG_PARSE_STATEMENT_LIST(stmnts, TOKEN_LB, -1, TOKEN_RB)
                 return STB_LANG_AST(.type=AST_FUNCDEF, .typeinfo=typeinfo, .value=func_name.value, .left=STB_LANG_LINKED_LIST(params), .right=STB_LANG_LINKED_LIST(stmnts));
             }else {
