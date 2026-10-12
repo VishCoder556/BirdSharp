@@ -329,15 +329,29 @@ return STB_LANG_AST(.type=AST_MODE, .typeinfo={.type=-1, .ptrnum=-1}, .value=are
 
 
 STB_LANG_DEFINE_TYPEINFO(
-    AST_TYPE_VOID,
-    AST_TYPE_INT,
-    AST_TYPE_I32,
-    AST_TYPE_I64,
-    AST_TYPE_CHAR,
-    AST_TYPE_STRING,
-    AST_TYPE_ARRAY,
-    AST_TYPE_STRUCT,
-    AST_TYPE_FLOAT
+    STB_LANG_TYPEINFO_TYPES(
+        AST_TYPE_VOID,
+        AST_TYPE_INT,
+        AST_TYPE_I32,
+        AST_TYPE_I64,
+        AST_TYPE_CHAR,
+        AST_TYPE_STRING,
+        AST_TYPE_ARRAY,
+        AST_TYPE_STRUCT,
+        AST_TYPE_FLOAT
+    ),
+    STB_LANG_TYPEINFO_DATA(
+        struct {
+            int size;
+            struct AST_TypeInfo *elem_type;
+        } array;
+
+        struct {
+            int size;
+            struct STB_CONCAT(CUR_TYPEINFO_NAME, _Symbol) *symbol;
+            char *name;
+        }struct1;
+    )
 )
 
 typedef struct {
@@ -1652,7 +1666,7 @@ STB_LANG_ITERATE_LINKED_LIST(ast->left, _args, Lang_Parser_AST,
                 }
             else if (STB_LANG_LHS(ast)->type == AST_DEREF) {
                 ast->typeinfo = STB_LANG_LHS(ast)->typeinfo;
-                if (ast->typeinfo.type == AST_TYPE_ARRAY){
+                if (ast->typeinfo.type == AST_TYPE_ARRAY) {
                     ast->typeinfo = *(Lang_TypeInfo_Typeinfo*)(ast->typeinfo.data.array.elem_type);
                     if (STB_LANG_LHS(ast)->type == AST_DEREF){
                         STB_LANG_LHS(ast)->typeinfo = ast->typeinfo;
@@ -1692,6 +1706,7 @@ STB_LANG_ITERATE_LINKED_LIST(ast->left, _args, Lang_Parser_AST,
                 char str[32]; snprintf(str, 32, "%d", size);
                 // a[0] = 5
                 STB_LANG_IR_EMIT(IR_MUL, STB_LANG_IR_OPERAND(IR_REG, offset_reg), STB_LANG_IR_RHS(STB_LANG_LHS(ast)), STB_LANG_IR_OPERAND(IR_INT, arena_strdup(&g_arena, str)));
+
                 if (STB_LANG_LHS(STB_LANG_LHS(ast))->typeinfo.ptrnum == 0){
                     STB_LANG_IR_EMIT(IR_ADDR, STB_LANG_IR_OPERAND(IR_REG, addr_reg), STB_LANG_IR_LHS(STB_LANG_LHS(ast)), NULL);
                 }else {
@@ -1812,8 +1827,8 @@ STB_LANG_ITERATE_LINKED_LIST(ast->left, _args, Lang_Parser_AST,
 
                 int size = STB_LANG_LOOKUP_SIZE(ir->root_scope, &STB_LANG_LHS(ast)->typeinfo);
                 char str[32]; snprintf(str, 32, "%d", size);
-                // a[0] = 5
                 STB_LANG_IR_EMIT(IR_MUL, STB_LANG_IR_OPERAND(IR_REG, offset_reg), STB_LANG_IR_RHS(STB_LANG_LHS(ast)), STB_LANG_IR_OPERAND(IR_INT, arena_strdup(&g_arena, str)));
+
                 if (STB_LANG_LHS(STB_LANG_LHS(ast))->typeinfo.ptrnum == 0){
                     STB_LANG_IR_EMIT(IR_ADDR, STB_LANG_IR_OPERAND(IR_REG, addr_reg), STB_LANG_IR_LHS(STB_LANG_LHS(ast)), NULL);
                 }else {
@@ -1883,7 +1898,13 @@ STB_LANG_ITERATE_LINKED_LIST(ast->left, _args, Lang_Parser_AST,
                 fprintf(stderr, "Symbol error thing\n");
                 stb_lang_exit(0);
             }
+            if (symbol->data.struct1.structdef == NULL){
+                STB_LANG_IR_ERROR_MINOR(ast->offset, ast->file, "StructError", "Trying to access field of an unknown struct");
+            }
             Lang_Parser_AST *structdef = STB_LANG_GET_AST(symbol->data.struct1.structdef);
+            if (structdef == NULL){
+                STB_LANG_IR_ERROR_MINOR(ast->offset, ast->file, "StructError", "Trying to access field of an unknown struct");
+            }
             int offset = 0;
             int found = 0;
             STB_LANG_ITERATE_LINKED_LIST(STB_LANG_LHS(structdef), field, Lang_Parser_AST,
@@ -2124,7 +2145,7 @@ STB_LANG_ITERATE_LINKED_LIST(ast->left, _args, Lang_Parser_AST,
             int typ = STB_LANG_LHS(ast)->typeinfo.type;
             if (typ == AST_TYPE_ARRAY) {
                 snprintf(str, 32, "%d", STB_LANG_LOOKUP_SIZE(ir->root_scope, STB_LANG_LHS(ast)->typeinfo.data.array.elem_type));
-            } else {
+            }else {
                 snprintf(str, 32, "%d", STB_LANG_LOOKUP_SIZE(ir->root_scope, &ast->typeinfo));
             }
             STB_LANG_IR_EMIT(IR_MUL, STB_LANG_IR_OPERAND(IR_REG, temp_reg), STB_LANG_IR_RHS(ast), STB_LANG_IR_OPERAND(IR_INT, arena_strdup(&g_arena, str)));
@@ -2373,19 +2394,21 @@ STB_LANG_NEW_REGALLOC(
         regalloc->interpreted = optimizer->interpreted;
     ),
     STB_LANG_REGALLOC_REGISTERS(
-        REG_X9, REG_X10, REG_X11, REG_X12, REG_X13, REG_X14, REG_X15,
-        REG_X19, REG_X20
+        REG_X19, REG_X20, REG_X21, REG_X22, REG_X23, REG_X24, REG_X25, REG_X26, REG_X27,
+        REG_X28
+        // TODO: BirdSharp functions called by C code should follow this callee-saved architecture
     ),
     STB_LANG_REGALLOC_REGISTER_NAMES(
-        STB_LANG_REGALLOC_REGISTER_MATCH(REG_X9, "x9", "w9", "w9", "w9")
-        STB_LANG_REGALLOC_REGISTER_MATCH(REG_X10, "x10", "w10", "w10", "w10")
-        STB_LANG_REGALLOC_REGISTER_MATCH(REG_X11, "x11", "w11", "w11", "w11")
-        STB_LANG_REGALLOC_REGISTER_MATCH(REG_X12, "x12", "w12", "w12", "w12")
-        STB_LANG_REGALLOC_REGISTER_MATCH(REG_X13, "x13", "w13", "w13", "w13")
-        STB_LANG_REGALLOC_REGISTER_MATCH(REG_X14, "x14", "w14", "w14", "w14")
-        STB_LANG_REGALLOC_REGISTER_MATCH(REG_X15, "x15", "w15", "w15", "w15")
         STB_LANG_REGALLOC_REGISTER_MATCH(REG_X19, "x19", "w19", "w19", "w19")
         STB_LANG_REGALLOC_REGISTER_MATCH(REG_X20, "x20", "w20", "w20", "w20")
+        STB_LANG_REGALLOC_REGISTER_MATCH(REG_X21, "x21", "w21", "w21", "w21")
+        STB_LANG_REGALLOC_REGISTER_MATCH(REG_X22, "x22", "w22", "w22", "w22")
+        STB_LANG_REGALLOC_REGISTER_MATCH(REG_X23, "x23", "w23", "w23", "w23")
+        STB_LANG_REGALLOC_REGISTER_MATCH(REG_X24, "x24", "w24", "w24", "w24")
+        STB_LANG_REGALLOC_REGISTER_MATCH(REG_X25, "x25", "w25", "w25", "w25")
+        STB_LANG_REGALLOC_REGISTER_MATCH(REG_X26, "x26", "w26", "w26", "w26")
+        STB_LANG_REGALLOC_REGISTER_MATCH(REG_X27, "x27", "w27", "w27", "w27")
+        STB_LANG_REGALLOC_REGISTER_MATCH(REG_X28, "x28", "w28", "w28", "w28")
 
     ),
     // STB_LANG_REGALLOC_REGISTERS(

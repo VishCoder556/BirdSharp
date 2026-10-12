@@ -104,6 +104,7 @@ if (token.type != typ){ \
     parent->left = (struct STB_CONCAT(CUR_PARSER_NAME, _AST)*)left; \
     parent->next = NULL; \
     parent->offset = offset; \
+    parent->file = left->file; \
     __VA_ARGS__; \
  \
     left = parent; \
@@ -291,12 +292,15 @@ int STB_CONCAT3(CUR_TYPEINFO_PREFIX, _typeinfo, _lookup_size)(STB_CONCAT(CUR_TYP
 
 #define STB_LANG_LOOKUP_SIZE(root_scope, typeinf) STB_CONCAT3(CUR_TYPEINFO_PREFIX, _typeinfo, _lookup_size)(*(STB_CONCAT(CUR_TYPEINFO_NAME, _Typeinfo)*)typeinf, root_scope)
 
+#define STB_LANG_TYPEINFO_TYPES(...) __VA_ARGS__
+#define STB_LANG_TYPEINFO_DATA(... ) __VA_ARGS__ 
 
-#define STB_LANG_DEFINE_TYPEINFO(...) \
+
+#define STB_LANG_DEFINE_TYPEINFO(types, dat) \
 typedef enum { \
     STB_LANG_TYPEINFO_VARIADIC = -2, \
     STB_LANG_TYPEINFO_NONE = -1, \
-    __VA_ARGS__ \
+    types \
 }STB_CONCAT(CUR_TYPEINFO_NAME, _TypeinfoType); \
 struct STB_CONCAT(CUR_TYPEINFO_NAME, _Symbol); \
 struct STB_CONCAT(CUR_PARSER_NAME, _AST); \
@@ -304,15 +308,7 @@ typedef struct { \
     STB_CONCAT(CUR_TYPEINFO_NAME, _TypeinfoType) type; \
     int ptrnum; \
     union { \
-        struct { \
-            int size; \
-            struct AST_TypeInfo *elem_type; \
-        } array; \
-        struct { \
-            int size; \
-            struct STB_CONCAT(CUR_TYPEINFO_NAME, _Symbol) *symbol; \
-            char *name; \
-        }struct1; \
+        dat; \
     } data; \
 }STB_CONCAT(CUR_TYPEINFO_NAME, _Typeinfo); \
 typedef enum { \

@@ -2,7 +2,7 @@
 
 
 int main(){
-#!if $platform.windows { // Intrinsic test
+#!if $platform.windows {
     printf("No support for Windows yet\n")
 }
 

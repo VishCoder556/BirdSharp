@@ -1,0 +1,32 @@
+.global _main
+.align 2
+_main:
+        stp x29, x30, [sp, #-16]!
+        mov x29, sp
+        sub sp, sp, #4080
+        mov x9, sp
+        mov x9, x9
+        add x9, x9, #0
+        mov x0, #100
+        str x0, [sp, #-16]
+        ldr x0, [sp, #-16]
+        bl _malloc
+        mov x11, x0
+        mov x12, x9
+        str x11, [x12]
+        mov x9, sp
+        mov x9, x9
+        add x9, x9, #8
+        mov x10, #0
+        mov x11, x9
+        str x10, [x11]
+        mov x0, #0
+        mov sp, x29
+        ldp x29, x30, [sp], #16
+        ret
+        mov sp, x29
+        ldp x29, x30, [sp], #16
+        ret
+.data
+.align 3
+
