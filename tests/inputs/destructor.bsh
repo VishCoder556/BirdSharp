@@ -1,0 +1,12 @@
+#!include "examples/include/std.bsh"
+
+destructor(int self){
+    printf("End of Integer Lifetime, %d\n", self);
+}
+
+
+int main(int argc, ptr<string> argv){
+    int a = 5
+    a = 3
+    return 9
+}

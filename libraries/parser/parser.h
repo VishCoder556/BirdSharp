@@ -325,7 +325,6 @@ typedef struct { \
     union {; \
         struct { \
             int offset; \
-            void *extr; \
         }variable; \
         struct { \
             STB_CONCAT3(dymarray_, CUR_TYPEINFO_NAME, _Typeinfo) *args; \

@@ -774,7 +774,7 @@ STB_LANG_PARSE_AST(
             STB_LANG_PARSER_BACK();
 not_funcall:
             ;
-            STB_LANG_GET_AST_EXPR(lhs, 0);
+            STB_LANG_GET_AST_EXPR(lhs, -1);
             STB_LANG_IF_TOKEN(TOKEN_EQ,
                 STB_LANG_PARSER_ADVANCE();
                 STB_LANG_OPERAND(assign, lang_parser_parse_expr(parser, 0));
@@ -936,6 +936,9 @@ STB_LANG_PARSE_EXPR(
             left = STB_LANG_AST_FUNCALL(AST_FUNCALL, name, args)
         ) STB_LANG_ELSE(
             left = STB_LANG_AST_LITERAL(AST_VAR, name);
+            if (binding_power == -1){
+                left->flags = -3;
+            }
             goto skip;
         )
     )
@@ -1493,13 +1496,17 @@ STB_LANG_NEW_TYPEINFO(
             //     }
             // )
 
-            STB_LANG_REGISTER_VARIABLE(ast->value, ast->typeinfo, 0, .data.variable.extr = ast);
+            STB_LANG_REGISTER_VARIABLE(ast->value, ast->typeinfo, 0);
         )
         STB_LANG_TYPEINFO_CASE(AST_VAR,
             // TODO: actually check if variable exists
             if (ast->left != (void*)1){
                 STB_LANG_INFER_TYPE(ast->value); // STB_LANG_INFER_TYPE leaves behind a symbol variable
-                symbol->data.variable.extr = ast;
+                if (!(checker->decl_auto == 1 && ast->flags == -3)){
+                    if (symbol->typeinfo.type == -1){
+                        STB_LANG_TYPEINFO_ERROR_MINOR(ast->offset, ast->file, "AssignError", "Variable \"%s\" does not exist", ast->value);
+                    }
+                }
             }
         )
         STB_LANG_TYPEINFO_CASE(AST_INT,
