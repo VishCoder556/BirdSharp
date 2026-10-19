@@ -1,10 +1,12 @@
 #!include "examples/include/std.bsh"
 
-
-int main(){
-#!if $platform.windows {
-    printf("No support for Windows yet\n")
+destructor(int self){
+    printf("End of Integer Lifetime, %d\n", self);
 }
 
-    return 0
+
+int main(int argc, ptr<string> argv){
+    int a = 5
+    a = 3
+    return 9
 }

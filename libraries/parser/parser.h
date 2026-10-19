@@ -321,9 +321,11 @@ typedef struct { \
     char *name; \
     STB_CONCAT(CUR_TYPEINFO_NAME, _Typeinfo) typeinfo; \
     STB_CONCAT(CUR_TYPEINFO_NAME, _SymbolKind) kind; \
+    char arg1; \
     union {; \
         struct { \
             int offset; \
+            void *extr; \
         }variable; \
         struct { \
             STB_CONCAT3(dymarray_, CUR_TYPEINFO_NAME, _Typeinfo) *args; \

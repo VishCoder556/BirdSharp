@@ -21,7 +21,7 @@
 #define STB_LANG_SIZE_OFFSET() \
 int STB_CONCAT(CUR_CODEGEN_PREFIX, _get_size_from_var)(CUR_CODEGEN_NAME *gen, char *var){ \
     STB_CONCAT(CUR_TYPEINFO_NAME, _Scope) *cur_scope = (STB_CONCAT(CUR_TYPEINFO_NAME, _Scope)*)gen->current_scope; \
-    STB_CONCAT(CUR_TYPEINFO_NAME, _Typeinfo) typeinfo = STB_CONCAT(CUR_TYPEINFO_PREFIX, _symbol_find)(cur_scope, var).typeinfo; \
+    STB_CONCAT(CUR_TYPEINFO_NAME, _Typeinfo) typeinfo = STB_CONCAT(CUR_TYPEINFO_PREFIX, _symbol_find)(cur_scope, var)->typeinfo; \
     return STB_CONCAT3(CUR_TYPEINFO_PREFIX, _typeinfo, _lookup_size)(typeinfo, gen->root_scope); \
 }; \
 \

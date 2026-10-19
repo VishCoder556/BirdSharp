@@ -23,6 +23,7 @@
 #define STB_LANG_TYPEINFO_FUNCTIONS(...) __VA_ARGS__
 
 
+
 #define STB_LANG_TYPEINFO_ERROR_MINOR(where, fil, type, ...) \
 if (fil > checker->files.datalen){ \
     stb_lang_error_minor(checker->file.name, checker->file.contents, where, "TypeinfoError", "Failure to generate error"); \
@@ -41,6 +42,7 @@ if (fil > checker->files.datalen){ \
 } \
 stb_lang_note_minor(checker->files.data[fil].name, checker->files.data[fil].contents, where, __VA_ARGS__);
 
+#define STB_LANG_TYPEINFO_STRING_ERROR(type, ...)  stb_lang_error_major_global(type, __VA_ARGS__);
 
 #define STB_LANG_TYPEINFO_CASE(typ, ...) else if(ast->type == typ){__VA_ARGS__;}
 #define STB_LANG_TYPEINFO_2CASES(typ, typ2, ...) else if(ast->type == typ || ast->type == typ2){__VA_ARGS__;}
@@ -102,11 +104,13 @@ STB_CONCAT3(dymarray_, CUR_TYPEINFO_NAME, _Symbol) *funcs = &(((STB_CONCAT(CUR_T
 int found = 0; \
 for (int i=0; i<funcs->datalen; i++){ \
     if (funcs->data[i].kind == typ){ \
-        if (strcmp(funcs->data[i].name, nam) == 0){ \
-            found = 1; \
-            STB_CONCAT(CUR_TYPEINFO_NAME, _Symbol) symnew = funcs->data[i]; \
-            __VA_ARGS__; \
-        }; \
+        if (funcs->data[i].name != NULL && nam != NULL){ \
+            if (strcmp(funcs->data[i].name, nam) == 0){ \
+                found = 1; \
+                STB_CONCAT(CUR_TYPEINFO_NAME, _Symbol) symnew = funcs->data[i]; \
+                __VA_ARGS__; \
+            }; \
+        }else {STB_LANG_TYPEINFO_STRING_ERROR("Symbol not found", "Symbol was nullptr");}; \
     } \
 } \
 if (found != 0){ \
@@ -203,25 +207,23 @@ escape: \
 
 
 
-#define STB_LANG_REGISTER_VARIABLE(nam, typeinf)  \
+#define STB_LANG_REGISTER_VARIABLE(nam, typeinf, ar, ...)  \
 STB_LANG_ADD_VARIABLE(typeinf, \
     &(((STB_CONCAT(CUR_TYPEINFO_NAME, _Scope)*)checker->current_scope)->symbols),  \
-    ((STB_CONCAT(CUR_TYPEINFO_NAME, _Symbol)) {.name=nam, .typeinfo=(STB_CONCAT(CUR_TYPEINFO_NAME, _Typeinfo))typeinf}) \
+    ((STB_CONCAT(CUR_TYPEINFO_NAME, _Symbol)) {.name=nam, .typeinfo=(STB_CONCAT(CUR_TYPEINFO_NAME, _Typeinfo))typeinf, .arg1=ar, __VA_ARGS__}) \
 );
 
 
 
 
-#define STB_LANG_VARIABLE(ast) \
-STB_LANG_REGISTER_VARIABLE(ast->value, ast->typeinfo)
 
 
 
 
 #define STB_LANG_INFER_TYPE(nam) \
-STB_CONCAT(CUR_TYPEINFO_NAME, _Symbol) symbol = STB_CONCAT(CUR_TYPEINFO_PREFIX, _symbol_find)((STB_CONCAT(CUR_TYPEINFO_NAME, _Scope)*)(checker->current_scope), nam); \
-if (symbol.typeinfo.type == -1) {symbol = STB_CONCAT(CUR_TYPEINFO_PREFIX, _symbol_find)((STB_CONCAT(CUR_TYPEINFO_NAME, _Scope)*)(checker->root_scope), nam);} \
-if (symbol.typeinfo.type != -1) {ast->typeinfo = symbol.typeinfo;}
+STB_CONCAT(CUR_TYPEINFO_NAME, _Symbol) *symbol = STB_CONCAT(CUR_TYPEINFO_PREFIX, _symbol_find)((STB_CONCAT(CUR_TYPEINFO_NAME, _Scope)*)(checker->current_scope), nam); \
+if (symbol->typeinfo.type == -1) {symbol = STB_CONCAT(CUR_TYPEINFO_PREFIX, _symbol_find)((STB_CONCAT(CUR_TYPEINFO_NAME, _Scope)*)(checker->root_scope), nam);} \
+if (symbol->typeinfo.type != -1) {ast->typeinfo = symbol->typeinfo;}
 
 #define STB_LANG_SCOPE_MAKE_CHILD(paren, curscope, ...) \
 STB_CONCAT(CUR_TYPEINFO_NAME, _Scope)* news = ((STB_CONCAT(CUR_TYPEINFO_NAME, _Scope)*)paren); \
@@ -251,14 +253,13 @@ STB_CONCAT(CUR_TYPEINFO_NAME, _ScopeL) STB_CONCAT(CUR_TYPEINFO_PREFIX, _scope_ne
     scope->name = name; \
     return (STB_CONCAT(CUR_TYPEINFO_NAME, _ScopeL))scope; \
 } \
-int STB_CONCAT(CUR_TYPEINFO_PREFIX, _symbol_find_from_symbols)(STB_CONCAT3(dymarray_, CUR_TYPEINFO_NAME, _Symbol) symbol_table, char *query, STB_CONCAT(CUR_TYPEINFO_NAME, _Symbol) *sym){ \
+int STB_CONCAT(CUR_TYPEINFO_PREFIX, _symbol_find_from_symbols)(STB_CONCAT3(dymarray_, CUR_TYPEINFO_NAME, _Symbol) symbol_table, char *query, STB_CONCAT(CUR_TYPEINFO_NAME, _Symbol) **sym){ \
     if (query == NULL) {goto exit;} \
     for (int i=0; i<symbol_table.datalen; i++){\
         STB_CONCAT(CUR_TYPEINFO_NAME, _Symbol) symbol = symbol_table.data[i]; \
-        if (symbol.name != NULL){ \
+        if (symbol.name != NULL && query != NULL){ \
             if (strcmp(symbol.name, query) == 0){ \
-                if (sym != NULL) \
-                    *sym = symbol; \
+                *sym = &symbol_table.data[i]; \
                 return 1; \
             }; \
         } \
@@ -266,12 +267,10 @@ int STB_CONCAT(CUR_TYPEINFO_PREFIX, _symbol_find_from_symbols)(STB_CONCAT3(dymar
 exit: \
     return 0; \
 } \
-void STB_CONCAT(CUR_TYPEINFO_PREFIX, _expect_type_eq)(CUR_TYPEINFO_NAME *checker, STB_CONCAT(CUR_PARSER_NAME, _AST) *left, STB_CONCAT(CUR_PARSER_NAME, _AST) *right){ \
-    if (left != NULL && right != NULL){ \
-        typcheck; \
-        if (left->typeinfo.type != right->typeinfo.type || left->typeinfo.ptrnum != right->typeinfo.ptrnum){ \
-            STB_LANG_TYPEINFO_ERROR_MINOR(left->offset, left->file, "TypeinfoError", "Expected types to be equal"); \
-        } \
+void STB_CONCAT(CUR_TYPEINFO_PREFIX, _expect_type_eq)(CUR_TYPEINFO_NAME *checker, STB_CONCAT(CUR_TYPEINFO_NAME, _Typeinfo) left, STB_CONCAT(CUR_TYPEINFO_NAME, _Typeinfo) right, STB_CONCAT(CUR_PARSER_NAME, _AST) *ast){ \
+    typcheck; \
+    if (left.type != right.type || left.ptrnum != right.ptrnum){ \
+        STB_LANG_TYPEINFO_ERROR_MINOR(ast->offset, ast->file, "TypeinfoError", "Expected types to be equal"); \
     } \
 }; \
 STB_CONCAT(CUR_TYPEINFO_NAME, _Scope) * STB_CONCAT(CUR_TYPEINFO_PREFIX, _symbol_find_scope)(STB_CONCAT(CUR_TYPEINFO_NAME, _Scope) *scope, char *query){ \
@@ -282,7 +281,7 @@ STB_CONCAT(CUR_TYPEINFO_NAME, _Scope) * STB_CONCAT(CUR_TYPEINFO_PREFIX, _symbol_
         STB_CONCAT(CUR_TYPEINFO_NAME, _Scope) *a = (STB_CONCAT(CUR_TYPEINFO_NAME, _Scope)*)scope->children.data[i]; \
         (void)a; \
         STB_CONCAT(CUR_TYPEINFO_NAME, _Scope) *scope1 = ((STB_CONCAT(CUR_TYPEINFO_NAME, _Scope)*)scope->children.data[i]); \
-        if (scope1->name != NULL){ \
+        if (scope1->name != NULL && query != NULL){ \
             if (strcmp(scope1->name, query) == 0){ \
                 return scope1; \
             }; \
@@ -291,16 +290,18 @@ STB_CONCAT(CUR_TYPEINFO_NAME, _Scope) * STB_CONCAT(CUR_TYPEINFO_PREFIX, _symbol_
 exit: \
     return NULL; \
 } \
-STB_CONCAT(CUR_TYPEINFO_NAME, _Symbol) STB_CONCAT(CUR_TYPEINFO_PREFIX, _symbol_find)(STB_CONCAT(CUR_TYPEINFO_NAME, _Scope) *scope, char *query){ \
+STB_CONCAT(CUR_TYPEINFO_NAME, _Symbol) *STB_CONCAT(CUR_TYPEINFO_PREFIX, _symbol_find)(STB_CONCAT(CUR_TYPEINFO_NAME, _Scope) *scope, char *query){ \
     STB_CONCAT(CUR_TYPEINFO_NAME, _Scope) *sc = scope; \
-    STB_CONCAT(CUR_TYPEINFO_NAME, _Symbol) sym = (STB_CONCAT(CUR_TYPEINFO_NAME, _Symbol)){.typeinfo = {.ptrnum=-1}}; \
+    STB_CONCAT(CUR_TYPEINFO_NAME, _Symbol) *sym = arena_alloc(&g_arena, sizeof(*sym)); \
     while (sc != NULL){ \
         if (STB_CONCAT(CUR_TYPEINFO_PREFIX, _symbol_find_from_symbols)(sc->symbols, query, &sym)) { \
             return sym; \
         } \
         sc = (STB_CONCAT(CUR_TYPEINFO_NAME, _Scope)*)sc->parent; \
     } \
-    return (STB_CONCAT(CUR_TYPEINFO_NAME, _Symbol)){.typeinfo = {.ptrnum=-1}}; \
+    sym->typeinfo.ptrnum = -1; \
+    sym->typeinfo.type = -1; \
+    return sym; \
 } \
 CUR_TYPEINFO_NAME *STB_CONCAT(CUR_TYPEINFO_PREFIX, _init)(CUR_PARSER_NAME *parser) { \
     CUR_TYPEINFO_NAME *checker = arena_alloc(&g_arena, sizeof(*checker)); \
@@ -343,7 +344,7 @@ char STB_CONCAT(CUR_TYPEINFO_PREFIX, _check)(CUR_TYPEINFO_NAME *checker) { \
 STB_CONCAT(CUR_PARSER_NAME, _AST) *_params = (STB_CONCAT(CUR_PARSER_NAME, _AST)*)ast->left; \
 while (_params != NULL){ \
     if (_params->typeinfo.type != STB_LANG_TYPEINFO_VARIADIC){ \
-        STB_LANG_VARIABLE(_params); \
+        STB_LANG_REGISTER_VARIABLE(_params->value, _params->typeinfo, 1); \
     } \
     _params = (STB_CONCAT(CUR_PARSER_NAME, _AST)*)_params->next; \
 }}while(0);
@@ -388,11 +389,9 @@ STB_LANG_EXPAND_LIST(ast->right); \
 #define STB_LANG_EXPAND_LHS() do{ STB_CONCAT(CUR_TYPEINFO_PREFIX, _check_ast)(checker, STB_LANG_LHS(ast));}while(0);
 
 #define STB_LANG_EXPECT_TYPEINFO_EQ(left, right, offset, file, ...)  \
-if (left.type != right.type || left.ptrnum != right.ptrnum){ \
-    STB_LANG_TYPEINFO_ERROR_MINOR(offset, file, "TypeinfoError", __VA_ARGS__); \
-}
+STB_CONCAT(CUR_TYPEINFO_PREFIX, _expect_type_eq)(checker, left, right, ast); \
 
-#define STB_LANG_EXPECT_TYPE_EQ(left, right) STB_CONCAT(CUR_TYPEINFO_PREFIX, _expect_type_eq)(checker, left, right)
+#define STB_LANG_EXPECT_TYPE_EQ(left, right) STB_CONCAT(CUR_TYPEINFO_PREFIX, _expect_type_eq)(checker, left->typeinfo, right->typeinfo, left)
 
 
 

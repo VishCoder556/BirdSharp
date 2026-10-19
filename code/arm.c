@@ -157,6 +157,9 @@ STB_LANG_NEW_CODEGEN(
         )
         STB_LANG_CODEGEN_CASE(IR_EXTERN,
         )
+        STB_LANG_CODEGEN_CASE(IR_FUNCDEF_MIDDLE,
+            STB_LANG_EMIT_CODE("\t1:\n");
+        )
         STB_LANG_CODEGEN_CASE(IR_FUNCDEF_END,
             STB_LANG_EMIT_CODE("\tmov sp, x29\n");
             STB_LANG_EMIT_CODE("\tldp x29, x30, [sp], #16\n");
@@ -165,9 +168,7 @@ STB_LANG_NEW_CODEGEN(
         STB_LANG_CODEGEN_CASE(IR_RET,
             STB_LANG_ARM_MOVE(8, instr->left, "x0")
 
-            STB_LANG_EMIT_CODE("\tmov sp, x29\n");
-            STB_LANG_EMIT_CODE("\tldp x29, x30, [sp], #16\n");
-            STB_LANG_EMIT_CODE("\tret\n");
+            STB_LANG_EMIT_CODE("\tb 1f\n");
         )
         STB_LANG_CODEGEN_CASE(IR_LABEL,
             STB_LANG_EMIT_CODE(".L_label_%s:\n", instr->dest->value)
@@ -287,7 +288,11 @@ STB_LANG_NEW_CODEGEN(
             STB_LANG_EMIT_CODE("\tstr %s, [sp, #-16]!\n", STB_LANG_REGISTER(instr->phys[0], 8));
         )
         STB_LANG_CODEGEN_CASE(IR_POP,
-            STB_LANG_EMIT_CODE("\tldr %s, [sp], #16\n", instr->dest->value);
+            if (instr->dest->value[0] == 'a'){
+                STB_LANG_EMIT_CODE("\tldr x%s, [sp], #-16\n", instr->dest->value + 1);
+            }else {
+                STB_LANG_EMIT_CODE("\tldr %s, [sp], #-16\n", instr->dest->value);
+            }
         )
         STB_LANG_CODEGEN_CASE(IR_JUMP_IF_FALSE,
             STB_LANG_EMIT_CODE("\tcbz %s, .L_label_%s\n", 

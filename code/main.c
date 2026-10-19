@@ -321,12 +321,28 @@ if (strcmp(data, "scope.flat") == 0){ \
     STB_LANG_SAVE(err, token.value); \
     STB_LANG_PARSER_EXPECT(TOKEN_STRING); \
     return STB_LANG_AST(.type=AST_ERROR, .value=err, .left=NULL, .middle=NULL, .right=NULL); \
-} \
+}else if (strcmp(data, "alias") == 0){ \
+    char *name = token.value; \
+    (void)name; \
+    STB_LANG_PARSER_EXPECT(TOKEN_ID); \
+    STB_LANG_PARSER_EXPECT(TOKEN_EQ); \
+    STB_LANG_GET_TYPEINFO(replw){  \
+    } \
+    Lang_TypeInfo_Typeinfo *typeinfo = arena_alloc(&g_arena, 100); \
+    *typeinfo = replw; \
+    Lang_TypeInfo_Alias alias = (Lang_TypeInfo_Alias){.name=name, .typeinfo=typeinfo}; \
+    dymarray_Lang_TypeInfo_Alias_add(&aliases, alias); \
+}; \
 return STB_LANG_AST(.type=AST_MODE, .typeinfo={.type=-1, .ptrnum=-1}, .value=arena_strdup(&g_arena, data), .left=NULL, .right=NULL);
 
 #define CUR_PARSER_NAME Lang_Parser
 #define CUR_PARSER_PREFIX lang_parser
 
+typedef struct {
+    char *name;
+    void *typeinfo; // Lang_TypeInfo_Typeinfo doesn't exist yet
+}Lang_TypeInfo_Alias;
+dymarray_typenew(Lang_TypeInfo_Alias, 10, 5);
 
 STB_LANG_DEFINE_TYPEINFO(
     STB_LANG_TYPEINFO_TYPES(
@@ -364,6 +380,9 @@ typedef struct {
 }Lang_LinkerData;
 Lang_LinkerData linker_data = (Lang_LinkerData){0};
 
+
+
+dymarray_Lang_TypeInfo_Alias aliases;
 
 
 STB_LANG_NEW_PARSER(
@@ -443,7 +462,9 @@ STB_LANG_ASTS(
     AST_MODE_IF,
     AST_ERROR,
     AST_MODE_CONDITION,
-    AST_NOT
+    AST_NOT,
+    AST_DESTRUCTOR,
+    AST_DESTRUCT
 ),
 STB_LANG_PARSER_FIELDS(
     int scope_flat;
@@ -454,6 +475,7 @@ STB_LANG_PARSER_INIT(
     parser->scope_flat = 0;
     InitLinkedList(parser->flat_scope, Lang_Parser_AST);
     parser->funcname = NULL;
+    aliases = dymarray_Lang_TypeInfo_Alias_new();
 ),
 STB_LANG_PARSER_SUFFIX(
     if (GetLinkedListHead(parser->flat_scope, Lang_Parser_AST) != NULL){
@@ -588,6 +610,27 @@ STB_LANG_PARSE_BODY(
             STB_LANG_PARSER_MODE();
         } 
         // Otherwise, leave it to AST level in flat mode so that it's picked into the entry point
+    )
+
+    STB_LANG_IF_VALUE(TOKEN_ID, "destructor",
+        STB_LANG_PARSER_ADVANCE();
+
+        STB_CONCAT(CUR_PARSER_NAME, _ASTList) params = (STB_CONCAT(CUR_PARSER_NAME, _ASTList)){0};
+        InitLinkedList(params, Lang_Parser_AST);
+        STB_LANG_PARSER_EXPECT(TOKEN_LP);
+
+        STB_LANG_GET_TYPEINFO(argt){
+            STB_LANG_IF_TOKEN(TOKEN_ID,
+                STB_CONCAT(CUR_PARSER_NAME, _AST) ast = (STB_CONCAT(CUR_PARSER_NAME, _AST)){.type=AST_VAR, .typeinfo=argt, .value=match_token.value, .offset=offset};
+                AppendToLinkedList(params, STB_CONCAT(CUR_PARSER_NAME, _AST), ast);
+            )
+            STB_LANG_PARSER_ADVANCE();
+        }
+
+        STB_LANG_PARSER_EXPECT(TOKEN_RP);
+
+        STB_LANG_PARSE_STATEMENT_LIST(stmnts, TOKEN_LB, -1, TOKEN_RB)
+        return STB_LANG_AST(.type=AST_DESTRUCTOR, .typeinfo=argt, .value=NULL, .left=STB_LANG_LINKED_LIST(params), .right=STB_LANG_LINKED_LIST(stmnts));
     )
 
     STB_LANG_IF_VALUE(TOKEN_ID, "struct",
@@ -1035,6 +1078,18 @@ start_parse_bracket:
         }
         return typeinf;
     )
+    STB_LANG_ELSE(
+        if (token.type == TOKEN_ID && token.value != NULL){
+            for (int i=0; i<aliases.datalen; i++){
+                if (strcmp(token.value, aliases.data[i].name) == 0){
+                    Lang_TypeInfo_Typeinfo *typ = (Lang_TypeInfo_Typeinfo*)aliases.data[i].typeinfo;
+                    STB_LANG_PARSER_ADVANCE();
+                    return *typ;
+                }
+            }
+        }
+        // dymarray_Lang_TypeInfo_Alias_add(&aliases, alias);
+    )
     return typeinfo;
 )
 )
@@ -1068,6 +1123,13 @@ STB_LANG_TYPEINFO_SIZE(
 #define lang_evaluate_comptime_op(op) \
 return lang_evaluate_comptime(checker, (Lang_Parser_AST*)ast->left) op lang_evaluate_comptime(checker, (Lang_Parser_AST*)ast->right);
 
+typedef struct {
+    Lang_TypeInfo_Typeinfo typeinfo;
+    Lang_Parser_AST *definition;
+    char *name;
+    struct Lang_TypeInfo_Destructor *next;
+}Lang_TypeInfo_Destructor;
+
 
 STB_LANG_NEW_TYPEINFO(
     STB_LANG_TYPEINFO_FIELDS(
@@ -1085,12 +1147,15 @@ STB_LANG_NEW_TYPEINFO(
         char os_unknown;
         char os_posix;
 
+        LinkedList(Lang_TypeInfo_Destructor);
+
             // declaration.var.infer, [declaration.var.explicit]
             // casting.strict, [casting.implicit], casting.pointer
             // mode.interpreted, [mode.compiled]
             // scope.flat, [scope.structured]
     ),
     STB_LANG_TYPEINFO_INIT(
+        InitLinkedList((*checker), Lang_TypeInfo_Destructor);
         checker->decl_auto = 0;
         checker->casting = 1; // Default is implicit
 // 0: default, 1: implicit, 2: pointer, 3: pointer and implicit
@@ -1169,53 +1234,75 @@ STB_LANG_NEW_TYPEINFO(
             }else if (ast->type == AST_NOT){
                 return !lang_evaluate_comptime(checker, (Lang_Parser_AST*)ast->left);
             }else if (ast->type == AST_MODE_CONDITION){
-                if (strcmp(ast->value, "declaration.var.infer") == 0){
-                    return checker->decl_auto;
-                }else if (strcmp(ast->value, "declaration.var.explicit") == 0){
-                    return !checker->decl_auto;
-                }else if (strcmp(ast->value, "casting.strict") == 0){
-                    return !(checker->cast_implicit && checker->cast_pointer);
-                }else if (strcmp(ast->value, "casting.implicit") == 0){
-                    return checker->cast_implicit;
-                }else if (strcmp(ast->value, "casting.pointer") == 0){
-                    return checker->cast_pointer;
-                }else if (strcmp(ast->value, "mode.interpreted") == 0){
-                    return checker->mode_intrp;
-                }else if (strcmp(ast->value, "mode.compiled") == 0){
-                    return !checker->mode_intrp;
-                }else if (strcmp(ast->value, "scope.flat") == 0){
-                    return checker->scope_flat;
-                }else if (strcmp(ast->value, "scope.structured") == 0){
-                    return !checker->scope_flat;
-                }else if (strcmp(ast->value, "platform.windows") == 0){
-                    return checker->os_windows;
-                }else if (strcmp(ast->value, "platform.mac") == 0){
-                    return checker->os_mac;
-                }else if (strcmp(ast->value, "platform.linux") == 0){
-                    return checker->os_linux;
-                }else if (strcmp(ast->value, "platform.posix") == 0){
-                    return checker->os_posix;
-                }else if (strcmp(ast->value, "platform.unknown") == 0){
-                    return checker->os_unknown;
-                }else {
-                    STB_LANG_TYPEINFO_ERROR_MINOR(ast->offset, ast->file, "CompileTimeError", "Could not parse #!if mode `%s`", ast->value);
+                if (ast->value != NULL){
+                    if (strcmp(ast->value, "declaration.var.infer") == 0){
+                        return checker->decl_auto;
+                    }else if (strcmp(ast->value, "declaration.var.explicit") == 0){
+                        return !checker->decl_auto;
+                    }else if (strcmp(ast->value, "casting.strict") == 0){
+                        return !(checker->cast_implicit && checker->cast_pointer);
+                    }else if (strcmp(ast->value, "casting.implicit") == 0){
+                        return checker->cast_implicit;
+                    }else if (strcmp(ast->value, "casting.pointer") == 0){
+                        return checker->cast_pointer;
+                    }else if (strcmp(ast->value, "mode.interpreted") == 0){
+                        return checker->mode_intrp;
+                    }else if (strcmp(ast->value, "mode.compiled") == 0){
+                        return !checker->mode_intrp;
+                    }else if (strcmp(ast->value, "scope.flat") == 0){
+                        return checker->scope_flat;
+                    }else if (strcmp(ast->value, "scope.structured") == 0){
+                        return !checker->scope_flat;
+                    }else if (strcmp(ast->value, "platform.windows") == 0){
+                        return checker->os_windows;
+                    }else if (strcmp(ast->value, "platform.mac") == 0){
+                        return checker->os_mac;
+                    }else if (strcmp(ast->value, "platform.linux") == 0){
+                        return checker->os_linux;
+                    }else if (strcmp(ast->value, "platform.posix") == 0){
+                        return checker->os_posix;
+                    }else if (strcmp(ast->value, "platform.unknown") == 0){
+                        return checker->os_unknown;
+                    }else {
+                        STB_LANG_TYPEINFO_ERROR_MINOR(ast->offset, ast->file, "CompileTimeError", "Could not parse #!if mode `%s`", ast->value);
+                    }
                 }
+            }else if (ast->type == AST_SIZEOF){
+                return STB_LANG_LOOKUP_SIZE(checker->root_scope, &ast->typeinfo);
             }else {
                 STB_LANG_TYPEINFO_ERROR_MINOR(ast->offset, ast->file, "CompileTimeError", "Could not parse #!if constant expression");
             }
 
             return 0;
         }
+        void lang_typeinfo_end_scope(Lang_TypeInfo *checker, Lang_Parser_AST *scope){
+            scope->middle = NULL;
+            dymarray_Lang_TypeInfo_Symbol syms = ((Lang_TypeInfo_Scope*)checker->current_scope)->symbols;
+
+            Lang_Parser_ASTList into = (Lang_Parser_ASTList){0};
+            InitLinkedList(into, Lang_Parser_AST);
+
+            for (int i=0; i<syms.datalen; i++){
+                if (syms.data[i].kind == STB_LANG_SYMBOL_VARIABLE){
+                    if (syms.data[i].arg1 == 0){
+                        STB_LANG_ITERATE_LINKED_LIST(GetLinkedListHead((*checker), Lang_TypeInfo_Destructor), head, Lang_TypeInfo_Destructor,
+                            if (head->typeinfo.type == syms.data[i].typeinfo.type){
+                                AppendToLinkedList(into, Lang_Parser_AST, (Lang_Parser_AST){.type=AST_DESTRUCT, .value=NULL, .left=(struct Lang_Parser_AST*)(&syms.data[i]), .middle=NULL, .right=(struct Lang_Parser_AST*)head, .offset=scope->offset, .file=scope->file, .flags=0});
+                            }
+                        );
+
+                    }
+                }
+            }
+            scope->middle = STB_LANG_LINKED_LIST(into);
+        };
     ),
     STB_LANG_TYPEINFO_CHECK_TYPES(
-        if (left->typeinfo.ptrnum == 0 && right->typeinfo.ptrnum == 0){
-            if (checker->casting == 1 || checker->casting == 3){
-                return; // Allow any implicit casting
-            }
-        }else if (left->typeinfo.ptrnum == right->typeinfo.ptrnum){
-            if (checker->casting == 2 || checker->casting == 3){
-                return; // Allow same pointer type casting (ptr<char> -> ptr<int>)
-            }
+        // Allow array/ptr and integer arithmetic
+        if ((left.ptrnum > 0 || left.type == AST_TYPE_ARRAY) && right.type == AST_TYPE_INT){
+            return;
+        }else if ((right.ptrnum > 0 || right.type == AST_TYPE_ARRAY) && left.type == AST_TYPE_INT){
+            return;
         }
     ),
     STB_LANG_TYPEINFO_CASES(
@@ -1258,6 +1345,32 @@ STB_LANG_NEW_TYPEINFO(
 
             }
         )
+        STB_LANG_TYPEINFO_CASE(AST_DESTRUCTOR, 
+            char *string = arena_alloc(&g_arena, 100);
+            snprintf(string, 100, "__global_destructor_%d_%d", ast->typeinfo.type, ast->typeinfo.ptrnum);
+            ast->value = string;
+            Lang_TypeInfo_Destructor destr = {.definition=ast, .typeinfo=ast->typeinfo, .name=string};
+
+            ;
+            STB_LANG_ITERATE_LINKED_LIST(GetLinkedListHead((*checker), Lang_TypeInfo_Destructor), head, Lang_TypeInfo_Destructor,
+                if (head->typeinfo.type == ast->typeinfo.type && head->typeinfo.ptrnum == ast->typeinfo.ptrnum){
+                    STB_LANG_TYPEINFO_ERROR_MINOR_UNDERLYING(ast->offset, ast->file, "DestructorError", "Reimplementation of existing destructor");
+                    STB_LANG_TYPEINFO_NOTE_MINOR(head->definition->offset, head->definition->file, "first destructor defined here");
+                    exit(-1);
+                }
+            )
+
+            AppendToLinkedList((*checker), Lang_TypeInfo_Destructor, destr);
+
+
+            STB_LANG_MAKE_SCOPE(string);
+            STB_LANG_ADD_FUNCTION(string,
+                STB_LANG_FUNCTION_RETURN((Lang_TypeInfo_Typeinfo){.type = AST_TYPE_VOID, .ptrnum = 0});
+                STB_LANG_FUNCTION_ADD_PARAMS(STB_LANG_GET_AST(ast->left));
+            )
+            STB_LANG_EXPAND_PARAMS();
+            STB_LANG_EXPAND_BLOCK();
+        )
         STB_LANG_TYPEINFO_CASE(AST_MODE_IF, 
             if (lang_evaluate_comptime(checker, (Lang_Parser_AST*)ast->middle) != 0){
                 ast->typeinfo.type = 100;
@@ -1281,6 +1394,14 @@ STB_LANG_NEW_TYPEINFO(
             )
             STB_LANG_EXPAND_PARAMS();
             STB_LANG_EXPAND_BLOCK();
+
+            lang_typeinfo_end_scope(checker, ast);
+        )
+        STB_LANG_TYPEINFO_CASE(AST_MODE_CONDITION,
+            int num = lang_evaluate_comptime(checker, ast);
+            ast->type = AST_INT;
+            ast->value = arena_alloc(&g_arena, 100);
+            snprintf(ast->value, 100, "%d", num);
         )
         STB_LANG_TYPEINFO_CASE(AST_STRUCT, 
 
@@ -1308,6 +1429,7 @@ STB_LANG_NEW_TYPEINFO(
             STB_LANG_EXPAND_LHS();
             STB_LANG_EXPAND_RHS();
             STB_LANG_INFER_TYPE(ast->value);
+
             ast->typeinfo = STB_LANG_LHS(ast)->typeinfo;
             int typ = STB_LANG_LHS(ast)->type;
             if (typ == AST_ACCESS || typ == AST_DEREF || typ == AST_INDEX){
@@ -1350,7 +1472,9 @@ STB_LANG_NEW_TYPEINFO(
                         STB_LANG_LHS(ast)->typeinfo = ast->typeinfo;
                     }
                 }
-                STB_LANG_REGISTER_VARIABLE(STB_LANG_OF_AST(ast->left, value), ast->typeinfo)
+                if (checker->decl_auto != 0){
+                    STB_LANG_REGISTER_VARIABLE(STB_LANG_OF_AST(ast->left, value), ast->typeinfo, 0)
+                }
             }
             STB_LANG_EXPECT_TYPE_EQ(STB_LANG_LHS(ast), STB_LANG_RHS(ast));
         )
@@ -1360,11 +1484,22 @@ STB_LANG_NEW_TYPEINFO(
                 STB_LANG_EXPECT_TYPE_EQ(ast, STB_LANG_RHS(ast));
             }
             STB_LANG_TYPEINFO_ASSUME_TYPE(STB_LANG_LHS(ast)->typeinfo);
-            STB_LANG_VARIABLE(ast);
+
+            // Lang_TypeInfo_Destructor *destr = NULL;
+
+            // STB_LANG_ITERATE_LINKED_LIST(GetLinkedListHead((*checker), Lang_TypeInfo_Destructor), head, Lang_TypeInfo_Destructor,
+            //     if (head->typeinfo.type == ast->typeinfo.type && head->typeinfo.ptrnum == ast->typeinfo.ptrnum){
+            //         destr = head;
+            //     }
+            // )
+
+            STB_LANG_REGISTER_VARIABLE(ast->value, ast->typeinfo, 0, .data.variable.extr = ast);
         )
         STB_LANG_TYPEINFO_CASE(AST_VAR,
+            // TODO: actually check if variable exists
             if (ast->left != (void*)1){
-                STB_LANG_INFER_TYPE(ast->value);
+                STB_LANG_INFER_TYPE(ast->value); // STB_LANG_INFER_TYPE leaves behind a symbol variable
+                symbol->data.variable.extr = ast;
             }
         )
         STB_LANG_TYPEINFO_CASE(AST_INT,
@@ -1473,22 +1608,28 @@ STB_LANG_NEW_TYPEINFO(
 
 
             // printf("{%s}\n", STB_LANG_LHS(ast)->typeinfo.data.struct1.name);
-            STB_LANG_FIND_DATA(checker->root_scope, STB_LANG_LHS(ast)->typeinfo.data.struct1.name,
+            if (STB_LANG_LHS(ast)->typeinfo.data.struct1.name != NULL){
                 STB_LANG_FIND_DATA(checker->root_scope, STB_LANG_LHS(ast)->typeinfo.data.struct1.name,
-                    Lang_Parser_AST *structdef = STB_LANG_LHS(STB_LANG_GET_AST(symnew.data.struct1.structdef));
-                    STB_LANG_ITERATE_LINKED_LIST(structdef, field, Lang_Parser_AST,
-                        if (field->type == AST_VAR){
-                            if (strcmp(field->value, ast->value) == 0){
-                                ast->typeinfo = field->typeinfo;
+                    STB_LANG_FIND_DATA(checker->root_scope, STB_LANG_LHS(ast)->typeinfo.data.struct1.name,
+                        Lang_Parser_AST *structdef = STB_LANG_LHS(STB_LANG_GET_AST(symnew.data.struct1.structdef));
+                        STB_LANG_ITERATE_LINKED_LIST(structdef, field, Lang_Parser_AST,
+                            if (field->type == AST_VAR){
+                                if (field->value != NULL){
+                                if (strcmp(field->value, ast->value) == 0){
+                                    ast->typeinfo = field->typeinfo;
+                                }
+                                }
                             }
-                        }
+                        )
                     )
+
+                    Lang_TypeInfo_Typeinfo *typeinfo = &(ast->typeinfo);
+                    STB_LANG_SET_SYMBOL(typeinfo->data.struct1.symbol, symnew);
+
                 )
-
-                Lang_TypeInfo_Typeinfo *typeinfo = &(ast->typeinfo);
-                STB_LANG_SET_SYMBOL(typeinfo->data.struct1.symbol, symnew);
-
-            )
+            }else {
+                STB_LANG_TYPEINFO_ERROR_MINOR(ast->offset, ast->file, "AccessError", "Expected LHS of access to be a struct");
+            }
         )
         STB_LANG_TYPEINFO_CASE(AST_EXPR,
             STB_LANG_EXPAND_LHS();
@@ -1522,7 +1663,9 @@ STB_LANG_NEW_TYPEINFO(
                         STB_LANG_LHS(ast)->typeinfo = ast->typeinfo;
                     }
                 }
-                STB_LANG_REGISTER_VARIABLE(STB_LANG_OF_AST(ast->left, value), ast->typeinfo)
+                if (checker->decl_auto != 0){
+                    STB_LANG_REGISTER_VARIABLE(STB_LANG_OF_AST(ast->left, value), ast->typeinfo, 0)
+                }
             }
             }else if (strcmp(instr, "call") && strcmp(instr, "syscall3")){
                 STB_LANG_EXPAND_LHS();
@@ -1546,9 +1689,11 @@ STB_LANG_NEW_TYPEINFO(
 STB_LANG_NEW_IR(
     STB_LANG_IR_FIELDS(
         int interpreted;
+        LinkedList(Lang_TypeInfo_Destructor);
     ),
     STB_LANG_IR_INIT(
         ir->interpreted = 0;
+        SetLinkedList((*ir), (*checker), Lang_TypeInfo_Destructor);
     ),
     STB_LANG_IR_OPERANDS(
         IR_INT,
@@ -1561,6 +1706,7 @@ STB_LANG_NEW_IR(
         IR_NOP,
         IR_EXTERN,
         IR_FUNCDEF_BEGIN,
+        IR_FUNCDEF_MIDDLE,
         IR_FUNCDEF_END,
         IR_ASSIGN,
         IR_DECL,
@@ -1627,12 +1773,42 @@ STB_LANG_ITERATE_LINKED_LIST(ast->left, _args, Lang_Parser_AST,
     }
 )
             STB_LANG_IR_BLOCK()
+
+
+            STB_LANG_IR_EMIT(IR_FUNCDEF_MIDDLE, STB_LANG_IR_OPERAND(IR_VAR, ast->value), NULL, NULL);
+
+            Lang_Parser_AST *mid = (Lang_Parser_AST*)ast->middle;
+            STB_LANG_ITERATE_LINKED_LIST(mid, head, Lang_Parser_AST,
+                Lang_TypeInfo_Symbol *sym = (Lang_TypeInfo_Symbol*)head->left;
+                STB_LANG_IR_NEW_TEMP(n);
+                STB_LANG_IR_EMIT(IR_ASSIGN, STB_LANG_IR_OPERAND(IR_REG, n), STB_LANG_IR_OPERAND(IR_REG, "a0"), NULL);
+
+
+                Lang_TypeInfo_Destructor *destr = (Lang_TypeInfo_Destructor*)(head->right);
+
+
+
+                STB_LANG_IR_EMIT(IR_ASSIGN, STB_LANG_IR_OPERAND(IR_REG, "a0"), STB_LANG_IR_OPERAND(IR_VAR, sym->name), NULL);
+                STB_LANG_IR_EMIT(IR_CALL, STB_LANG_IR_OPERAND(IR_VAR, destr->name), NULL, NULL, .typeinfo=(Lang_TypeInfo_Typeinfo){.type=0});
+
+
+                STB_LANG_IR_EMIT(IR_ASSIGN, STB_LANG_IR_OPERAND(IR_REG, "a0"), STB_LANG_IR_OPERAND(IR_REG, n), NULL);
+            )
+
+
             STB_LANG_IR_EMIT(IR_FUNCDEF_END, STB_LANG_IR_OPERAND(IR_VAR, ast->value), NULL, NULL);
         )
         STB_LANG_IR_CASE(AST_ASSIGN,
             STB_LANG_IR_EMIT(IR_ASSIGN, STB_LANG_IR_LHS_EXTRA(ast, 1), STB_LANG_IR_RHS(ast), NULL);
         )
         STB_LANG_IR_CASE(AST_STRUCT,
+        )
+
+        STB_LANG_IR_CASE(AST_DESTRUCTOR,
+            STB_LANG_IR_EMIT(IR_FUNCDEF_BEGIN, STB_LANG_IR_OPERAND(IR_VAR, ast->value), NULL, NULL);
+            STB_LANG_IR_EMIT(IR_ASSIGN, STB_LANG_IR_OPERAND(IR_VAR, STB_LANG_LHS(ast)->value), STB_LANG_IR_OPERAND(IR_REG, "a0"), NULL);
+            STB_LANG_IR_BLOCK()
+            STB_LANG_IR_EMIT(IR_FUNCDEF_END, STB_LANG_IR_OPERAND(IR_VAR, ast->value), NULL, NULL);
         )
 
         STB_LANG_IR_CASE(AST_IR_INSTRUCTION,
@@ -1895,7 +2071,7 @@ STB_LANG_ITERATE_LINKED_LIST(ast->left, _args, Lang_Parser_AST,
         STB_LANG_IR_CASE(AST_ACCESS,
             Lang_TypeInfo_Symbol *symbol = STB_LANG_GET_SYMBOL(ast->typeinfo.data.struct1.symbol);
             if (symbol == NULL){
-                fprintf(stderr, "Symbol error thing\n");
+                fprintf(stderr, "Symbol error\n");
                 stb_lang_exit(0);
             }
             if (symbol->data.struct1.structdef == NULL){
@@ -1931,6 +2107,14 @@ STB_LANG_ITERATE_LINKED_LIST(ast->left, _args, Lang_Parser_AST,
         )
 
         STB_LANG_IR_CASE(AST_VAR,
+            // if (ast->middle == (struct Lang_Parser_AST*)100){ // Last mention
+            //     STB_LANG_ITERATE_LINKED_LIST(GetLinkedListHead((*ir), Lang_TypeInfo_Destructor), head, Lang_TypeInfo_Destructor,
+            //         if (head->typeinfo.type == ast->typeinfo.type && head->typeinfo.ptrnum == ast->typeinfo.ptrnum){
+            //             STB_LANG_IR_EMIT(IR_ASSIGN, STB_LANG_IR_OPERAND(IR_REG, "a0"), STB_LANG_IR_OPERAND(IR_VAR, ast->value), NULL);
+            //             STB_LANG_IR_EMIT(IR_CALL, STB_LANG_IR_OPERAND(IR_VAR, head->name), NULL, NULL, .typeinfo=(Lang_TypeInfo_Typeinfo){.type=0});
+            //         }
+            //     )
+            // }
             return STB_LANG_IR_OPERAND(IR_VAR, ast->value);
         )
         STB_LANG_IR_CASE(AST_IR_TEMP,
@@ -2435,6 +2619,8 @@ STB_LANG_NEW_REGALLOC(
         )
         STB_LANG_REGALLOC_CASE(IR_FUNCDEF_END,
         )
+        STB_LANG_REGALLOC_CASE(IR_FUNCDEF_MIDDLE,
+        )
         STB_LANG_REGALLOC_2CASES(IR_ASSIGN, IR_DECL,
             STB_LANG_SAVE_REG(phys[0]);
         )
@@ -2816,6 +3002,7 @@ int main(int argc, char **argv){
     arena_free(&g_arena);
     STB_LANG_DRIVER_RUN_SCRIPT("rm -rf __res");
     free(newone);
+
 
 
     // printf("-------- ASSEMBLY CODE --------\n");

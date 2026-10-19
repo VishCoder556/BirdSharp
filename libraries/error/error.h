@@ -98,6 +98,17 @@ STB_Lang_Error_Position stb_lang_get_position(char *contents, int offset, char *
     col = (offset - col - 1);
     row++;
 
+    if (l != NULL){
+        if (*l[0] == '\n') (*l)++;
+
+        int len = strlen(*l);
+        if (len != 0){
+            if ((*l)[len - 1] == '\n'){
+                (*l)[len - 1] = '\0';
+            }
+        }
+    }
+
     return (STB_Lang_Error_Position){.row=row, .col=col};
 
 }
@@ -134,6 +145,7 @@ void stb_lang_note_minor(char *file, char *contents, int offset, char *fmt, ...)
         count++;
         newrow /= 10;
     } while (newrow != 0);
+    
 
 
 
