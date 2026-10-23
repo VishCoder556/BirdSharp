@@ -225,11 +225,13 @@ STB_CONCAT(CUR_TYPEINFO_NAME, _Symbol) *symbol = STB_CONCAT(CUR_TYPEINFO_PREFIX,
 if (symbol->typeinfo.type == -1) {symbol = STB_CONCAT(CUR_TYPEINFO_PREFIX, _symbol_find)((STB_CONCAT(CUR_TYPEINFO_NAME, _Scope)*)(checker->root_scope), nam);} \
 if (symbol->typeinfo.type != -1) {ast->typeinfo = symbol->typeinfo;}
 
-#define STB_LANG_SCOPE_MAKE_CHILD(paren, curscope, ...) \
-STB_CONCAT(CUR_TYPEINFO_NAME, _Scope)* news = ((STB_CONCAT(CUR_TYPEINFO_NAME, _Scope)*)paren); \
-STB_CONCAT(STB_CONCAT3(dymarray_, CUR_TYPEINFO_NAME, _ScopeL), _add)(&(news->children), __VA_ARGS__); \
-curscope = (STB_CONCAT(CUR_TYPEINFO_NAME, _ScopeL))__VA_ARGS__;
-
+#define STB_LANG_SCOPE_MAKE_CHILD(paren, curscope, ...) {\
+STB_CONCAT(CUR_TYPEINFO_NAME, _Scope)* news = ((STB_CONCAT(CUR_TYPEINFO_NAME, _Scope)*)curscope); \
+STB_CONCAT(CUR_TYPEINFO_NAME, _Scope)* abc = ((STB_CONCAT(CUR_TYPEINFO_NAME, _Scope)*)__VA_ARGS__); \
+curscope = (STB_CONCAT(CUR_TYPEINFO_NAME, _ScopeL))abc; \
+STB_CONCAT(STB_CONCAT3(dymarray_, CUR_TYPEINFO_NAME, _ScopeL), _add)(&(news->children), curscope); \
+abc->parent = (STB_CONCAT(CUR_TYPEINFO_NAME, _ScopeL))news; \
+}
 
 #define STB_LANG_NEW_TYPEINFO(_fields, code_init, code_suffix, funs, typcheck, _cases) \
 typedef struct { \
@@ -299,6 +301,9 @@ STB_CONCAT(CUR_TYPEINFO_NAME, _Symbol) *STB_CONCAT(CUR_TYPEINFO_PREFIX, _symbol_
         } \
         sc = (STB_CONCAT(CUR_TYPEINFO_NAME, _Scope)*)sc->parent; \
     } \
+    if (scope->parent != NULL){ \
+        return STB_CONCAT(CUR_TYPEINFO_PREFIX, _symbol_find)((STB_CONCAT(CUR_TYPEINFO_NAME, _Scope)*)scope->parent, query); \
+    }; \
     sym->typeinfo.ptrnum = -1; \
     sym->typeinfo.type = -1; \
     return sym; \
@@ -368,11 +373,21 @@ STB_LANG_EXPAND_LIST(ast->right); \
 }while(0);
 
 
-#define STB_LANG_MAKE_SCOPE(nam) do {\
+// newa: if it resets the variable offsets
+#define STB_LANG_MAKE_SCOPE(nam, newa) do {\
     STB_CONCAT(CUR_TYPEINFO_NAME, _ScopeL) new_scope = STB_CONCAT(CUR_TYPEINFO_PREFIX, _scope_new)(NULL, nam); \
     STB_LANG_SCOPE_MAKE_CHILD(checker->root_scope, checker->current_scope, new_scope); \
-    checker->entry_offset = 0; \
+    if (newa){ \
+        checker->entry_offset = 0; \
+    } \
 }while(0);
+
+
+#define STB_LANG_EXIT_SCOPE(newa) \
+if ((((STB_CONCAT(CUR_TYPEINFO_NAME, _Scope)*)checker->current_scope))->parent != NULL){ \
+checker->current_scope = ((STB_CONCAT(CUR_TYPEINFO_NAME, _Scope)*)checker->current_scope)->parent; \
+if (newa) checker->entry_offset = 0; \
+}
 
 #define STB_LANG_TYPEINFO_ASSUME_TYPE(typ) if (ast->typeinfo.type == -1) { \
     memcpy(&ast->typeinfo, &typ, sizeof(ast->typeinfo)); \

@@ -26,9 +26,9 @@ int STB_CONCAT(CUR_CODEGEN_PREFIX, _get_size_from_var)(CUR_CODEGEN_NAME *gen, ch
 }; \
 \
 \
-int STB_CONCAT(CUR_CODEGEN_PREFIX, _get_offset_from_var)(CUR_CODEGEN_NAME *gen, char *var){ \
+int STB_CONCAT(CUR_CODEGEN_PREFIX, _get_offset_from_var)(CUR_CODEGEN_NAME *gen, STB_CONCAT(CUR_TYPEINFO_NAME, _ScopeL) current_scope, char *var){ \
     if (var == NULL) {return -1;} \
-    STB_CONCAT(CUR_TYPEINFO_NAME, _Scope) *scope = (STB_CONCAT(CUR_TYPEINFO_NAME, _Scope)*)gen->current_scope; \
+    STB_CONCAT(CUR_TYPEINFO_NAME, _Scope) *scope = (STB_CONCAT(CUR_TYPEINFO_NAME, _Scope)*)current_scope; \
     STB_CONCAT3(dymarray_, CUR_TYPEINFO_NAME, _Symbol) symbol_table = scope->symbols; \
     for (int i=0; i<symbol_table.datalen; i++){\
         STB_CONCAT(CUR_TYPEINFO_NAME, _Symbol) symbol = symbol_table.data[i]; \
@@ -38,6 +38,10 @@ int STB_CONCAT(CUR_CODEGEN_PREFIX, _get_offset_from_var)(CUR_CODEGEN_NAME *gen, 
             }; \
         } \
     }; \
+    for (int i=0; i<scope->children.datalen; i++){ \
+        int a = STB_CONCAT(CUR_CODEGEN_PREFIX, _get_offset_from_var)(gen, scope->children.data[i], var); \
+        if (a != 0) return a; \
+    } \
     return 0; \
 }
 

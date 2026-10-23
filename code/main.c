@@ -430,6 +430,7 @@ STB_LANG_ASTS(
     AST_DIV,
     AST_MODULO,
     AST_IF,
+    AST_BLOCK,
     AST_WHILE,
     AST_LT,
     AST_LTE,
@@ -728,6 +729,11 @@ STB_LANG_PARSE_BODY(
 STB_LANG_PARSE_AST(
     STB_LANG_IF_TOKEN(TOKEN_HASH,
         STB_LANG_PARSER_MODE();
+    )
+
+    STB_LANG_IF_TOKEN(TOKEN_LB,
+        STB_LANG_PARSE_STATEMENT_LIST(stmnts, TOKEN_LB, -1, TOKEN_RB)
+        return STB_LANG_AST(.type=AST_BLOCK, .value=NULL, .left=NULL, .middle=NULL, .right=STB_LANG_LINKED_LIST(stmnts));
     )
 
     STB_LANG_IF_VALUE(TOKEN_ID, "if", 
@@ -1190,7 +1196,6 @@ STB_LANG_NEW_TYPEINFO(
     #endif
     ),
     STB_LANG_TYPEINFO_SUFFIX(
-        
     ),
     STB_LANG_TYPEINFO_FUNCTIONS(
         int lang_evaluate_comptime(Lang_TypeInfo *checker, Lang_Parser_AST *ast){
@@ -1285,7 +1290,7 @@ STB_LANG_NEW_TYPEINFO(
             Lang_Parser_ASTList into = (Lang_Parser_ASTList){0};
             InitLinkedList(into, Lang_Parser_AST);
 
-            for (int i=0; i<syms.datalen; i++){
+            for (int i=syms.datalen; i>=0; i--){
                 if (syms.data[i].kind == STB_LANG_SYMBOL_VARIABLE){
                     if (syms.data[i].arg1 == 0){
                         STB_LANG_ITERATE_LINKED_LIST(GetLinkedListHead((*checker), Lang_TypeInfo_Destructor), head, Lang_TypeInfo_Destructor,
@@ -1366,13 +1371,14 @@ STB_LANG_NEW_TYPEINFO(
             AppendToLinkedList((*checker), Lang_TypeInfo_Destructor, destr);
 
 
-            STB_LANG_MAKE_SCOPE(string);
+            STB_LANG_MAKE_SCOPE(string, 1);
             STB_LANG_ADD_FUNCTION(string,
                 STB_LANG_FUNCTION_RETURN((Lang_TypeInfo_Typeinfo){.type = AST_TYPE_VOID, .ptrnum = 0});
                 STB_LANG_FUNCTION_ADD_PARAMS(STB_LANG_GET_AST(ast->left));
             )
             STB_LANG_EXPAND_PARAMS();
             STB_LANG_EXPAND_BLOCK();
+            STB_LANG_EXIT_SCOPE(1)
         )
         STB_LANG_TYPEINFO_CASE(AST_MODE_IF, 
             if (lang_evaluate_comptime(checker, (Lang_Parser_AST*)ast->middle) != 0){
@@ -1382,15 +1388,16 @@ STB_LANG_NEW_TYPEINFO(
 
         )
         STB_LANG_TYPEINFO_CASE(AST_FUNCDECL, 
-            STB_LANG_MAKE_SCOPE(ast->value);
+            STB_LANG_MAKE_SCOPE(ast->value, 1);
             STB_LANG_ADD_FUNCTION(ast->value,
                 STB_LANG_FUNCTION_RETURN(ast->typeinfo);
                 STB_LANG_FUNCTION_ADD_PARAMS(STB_LANG_GET_AST(ast->left));
             )
             STB_LANG_EXPAND_PARAMS();
+            STB_LANG_EXIT_SCOPE(1)
         )
         STB_LANG_TYPEINFO_CASE(AST_FUNCDEF, 
-            STB_LANG_MAKE_SCOPE(ast->value);
+            STB_LANG_MAKE_SCOPE(ast->value, 1);
             STB_LANG_ADD_FUNCTION(ast->value,
                 STB_LANG_FUNCTION_RETURN(ast->typeinfo);
                 STB_LANG_FUNCTION_ADD_PARAMS(STB_LANG_GET_AST(ast->left));
@@ -1398,7 +1405,10 @@ STB_LANG_NEW_TYPEINFO(
             STB_LANG_EXPAND_PARAMS();
             STB_LANG_EXPAND_BLOCK();
 
+
             lang_typeinfo_end_scope(checker, ast);
+
+            STB_LANG_EXIT_SCOPE(1)
         )
         STB_LANG_TYPEINFO_CASE(AST_MODE_CONDITION,
             int num = lang_evaluate_comptime(checker, ast);
@@ -1499,7 +1509,6 @@ STB_LANG_NEW_TYPEINFO(
             STB_LANG_REGISTER_VARIABLE(ast->value, ast->typeinfo, 0);
         )
         STB_LANG_TYPEINFO_CASE(AST_VAR,
-            // TODO: actually check if variable exists
             if (ast->left != (void*)1){
                 STB_LANG_INFER_TYPE(ast->value); // STB_LANG_INFER_TYPE leaves behind a symbol variable
                 if (!(checker->decl_auto == 1 && ast->flags == -3)){
@@ -1555,13 +1564,26 @@ STB_LANG_NEW_TYPEINFO(
             )
         )
         STB_LANG_TYPEINFO_CASE(AST_IF,
+            // STB_LANG_MAKE_SCOPE("if", 0);
+
             STB_LANG_EXPAND_ARGS();
             STB_LANG_EXPAND_BLOCK();
             STB_LANG_EXPAND_LIST(ast->middle);
+
+            // STB_LANG_EXIT_SCOPE(0)
+        )
+        STB_LANG_TYPEINFO_CASE(AST_BLOCK,
+            STB_LANG_MAKE_SCOPE("block", 0);
+            STB_LANG_EXPAND_BLOCK();
+            STB_LANG_EXIT_SCOPE(0);
         )
         STB_LANG_TYPEINFO_CASE(AST_WHILE,
+            // STB_LANG_MAKE_SCOPE("while", 0);
+
             STB_LANG_EXPAND_ARGS();
             STB_LANG_EXPAND_BLOCK();
+
+            // STB_LANG_EXIT_SCOPE(0)
         )
         STB_LANG_TYPEINFO_CASE(AST_RET,
             STB_LANG_EXPAND_ARGS();
@@ -2295,6 +2317,9 @@ STB_LANG_ITERATE_LINKED_LIST(ast->left, _args, Lang_Parser_AST,
             STB_LANG_IR_RUN(ast->middle);
             STB_LANG_IR_EMIT(IR_LABEL, STB_LANG_IR_LABEL(IR_VAR, end), operand, NULL);
         )
+        STB_LANG_IR_CASE(AST_BLOCK,
+            STB_LANG_IR_BLOCK()
+        )
         STB_LANG_IR_CASE(AST_RET,
             STB_CONCAT(CUR_IR_NAME, _Operand) *operand = STB_LANG_IR_LHS(ast);
             STB_LANG_IR_EMIT(IR_RET, NULL, operand, NULL);
@@ -2737,7 +2762,7 @@ void STB_LANG_INVOKE_DRIVER(Lang_CodeGen_Arm *gen, char *output){
 
     char exec_path[100];
     snprintf(exec_path, 100, "__res/%s", output);
-    // STB_LANG_DRIVER_RUN_SCRIPT("cat %s", asm_path);
+    STB_LANG_DRIVER_RUN_SCRIPT("cat %s | pbcopy", asm_path);
     STB_LANG_DRIVER_RUN_SCRIPT("clang -O0 -arch arm64 -c %s -o %s", asm_path, exec_path);
     // STB_LANG_DRIVER_RUN_SCRIPT( "yasm -f macho64 %s -o %s", asm_path, exec_path);
     // STB_LANG_DRIVER_RUN_SCRIPT(exec_instr, asm_path, exec_path);

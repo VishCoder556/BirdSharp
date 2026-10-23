@@ -44,7 +44,7 @@ if (right != NULL) { \
             STB_LANG_EMIT_CODE("\tmov %s, x5\n", leftr); \
         } \
     }else if(right->type == IR_VAR){ \
-        int newoffset = STB_CONCAT(CUR_CODEGEN_PREFIX, _get_offset_from_var)(gen, right->value); \
+        int newoffset = STB_CONCAT(CUR_CODEGEN_PREFIX, _get_offset_from_var)(gen, gen->current_scope, right->value); \
         if (right->extr == 0 || instr->typeinfo.type == AST_TYPE_ARRAY){ \
             if (newoffset == 0){ \
                 STB_LANG_EMIT_CODE("\tldr %s, [sp]\n", leftr); \
@@ -77,7 +77,10 @@ if (right != NULL) { \
                 STB_LANG_EMIT_CODE("\tmov %s, x%d\n", leftr, atoi(right->value + 2)); \
             }; \
         }else if (right->value[0] == 'v'){ \
-            STB_LANG_EMIT_CODE("\tmov %s, %c0\n", leftr, size==8?'x':'w'); \
+            int insize = size; \
+            if (leftr[0] == 'x') insize = 8; \
+            else if (leftr[0] == 'w') insize = 4; \
+            STB_LANG_EMIT_CODE("\tmov %s, %c0\n", leftr, insize==8?'x':'w'); \
         }else { \
             STB_LANG_EMIT_CODE("\tmov %s, %s\n", leftr, STB_LANG_REGISTER(right->phys, size)); \
         } \
@@ -176,7 +179,7 @@ STB_LANG_NEW_CODEGEN(
         STB_LANG_CODEGEN_CASE(IR_ADDR,
             char *dest = STB_LANG_REGISTER(instr->dest->phys, 8);
             if (instr->left->type == IR_VAR){
-                int newoffset = STB_CONCAT(CUR_CODEGEN_PREFIX, _get_offset_from_var)(gen, instr->left->value);
+                int newoffset = STB_CONCAT(CUR_CODEGEN_PREFIX, _get_offset_from_var)(gen, gen->current_scope, instr->left->value);
                 if (newoffset == 0) {
                     STB_LANG_EMIT_CODE("\tmov %s, sp\n", dest);
                 } else {
@@ -239,8 +242,9 @@ STB_LANG_NEW_CODEGEN(
         )
         STB_LANG_CODEGEN_2CASES(IR_ASSIGN, IR_DECL,
             ;if (instr->dest->type == IR_VAR){
+                // fprintf(stderr, "[Here, %s\n", instr->dest->value);
                 int size = STB_CONCAT(CUR_CODEGEN_PREFIX, _get_size_from_var)(gen, instr->dest->value);
-                int offset = STB_CONCAT(CUR_CODEGEN_PREFIX, _get_offset_from_var)(gen, instr->dest->value);
+                int offset = STB_CONCAT(CUR_CODEGEN_PREFIX, _get_offset_from_var)(gen, gen->current_scope, instr->dest->value);
                 ;
                 if (instr->left != NULL){
                     STB_LANG_ARM_MOVE(size, instr->left, STB_LANG_REGISTER(instr->phys[0], size))
