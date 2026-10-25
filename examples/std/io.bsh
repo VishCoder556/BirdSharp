@@ -1,2 +1,16 @@
+#!export.global malloc
+#!export.global free
+#!export.global exit
 #!export.global printf
-#!include "examples/include/std.bsh"
+#!export.global strlen
+#!export.global getchar
+#!export.global putchar
+
+
+ptr<int> malloc(int size);
+void free(ptr<int> p);
+void exit(int return);
+void printf(string fmt, ...)
+int strlen(string fmt)
+char getchar()
+void putchar(char a)

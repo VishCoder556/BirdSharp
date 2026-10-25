@@ -354,7 +354,8 @@ STB_LANG_DEFINE_TYPEINFO(
         AST_TYPE_STRING,
         AST_TYPE_ARRAY,
         AST_TYPE_STRUCT,
-        AST_TYPE_FLOAT
+        AST_TYPE_FLOAT,
+        AST_TYPE_ALIAS
     ),
     STB_LANG_TYPEINFO_DATA(
         struct {
@@ -367,6 +368,11 @@ STB_LANG_DEFINE_TYPEINFO(
             struct STB_CONCAT(CUR_TYPEINFO_NAME, _Symbol) *symbol;
             char *name;
         }struct1;
+
+        struct {
+            char *name;
+            int n;
+        } alias;
     )
 )
 
@@ -476,7 +482,6 @@ STB_LANG_PARSER_INIT(
     parser->scope_flat = 0;
     InitLinkedList(parser->flat_scope, Lang_Parser_AST);
     parser->funcname = NULL;
-    aliases = dymarray_Lang_TypeInfo_Alias_new();
 ),
 STB_LANG_PARSER_SUFFIX(
     if (GetLinkedListHead(parser->flat_scope, Lang_Parser_AST) != NULL){
@@ -1091,13 +1096,15 @@ start_parse_bracket:
         if (token.type == TOKEN_ID && token.value != NULL){
             for (int i=0; i<aliases.datalen; i++){
                 if (strcmp(token.value, aliases.data[i].name) == 0){
-                    Lang_TypeInfo_Typeinfo *typ = (Lang_TypeInfo_Typeinfo*)aliases.data[i].typeinfo;
+                    Lang_TypeInfo_Typeinfo typ = (Lang_TypeInfo_Typeinfo){0};
+                    typ.type = AST_TYPE_ALIAS;
+                    typ.data.alias.name = token.value;
+                    typ.data.alias.n = i;
                     STB_LANG_PARSER_ADVANCE();
-                    return *typ;
+                    return typ;
                 }
             }
         }
-        // dymarray_Lang_TypeInfo_Alias_add(&aliases, alias);
     )
     return typeinfo;
 )
@@ -1115,6 +1122,12 @@ STB_LANG_TYPEINFO_SIZE(
         case AST_TYPE_CHAR: return 1;
         case AST_TYPE_STRING: return 8;
         case AST_TYPE_ARRAY: return STB_LANG_LOOKUP_SIZE(root_scope, typeinfo.data.array.elem_type) * typeinfo.data.array.size;
+        case AST_TYPE_ALIAS: {
+            if (typeinfo.data.alias.n <= aliases.datalen){
+                Lang_TypeInfo_Typeinfo *alias = (Lang_TypeInfo_Typeinfo*)aliases.data[typeinfo.data.alias.n].typeinfo;
+                return STB_LANG_LOOKUP_SIZE(root_scope, alias);
+            }
+        }
         case AST_TYPE_STRUCT: {
             STB_LANG_FIND_DATA(root_scope, typeinfo.data.struct1.name,
                 int size = 0;
@@ -1290,11 +1303,11 @@ STB_LANG_NEW_TYPEINFO(
             Lang_Parser_ASTList into = (Lang_Parser_ASTList){0};
             InitLinkedList(into, Lang_Parser_AST);
 
-            for (int i=syms.datalen; i>=0; i--){
+            for (int i=syms.datalen-1; i>=0; i--){
                 if (syms.data[i].kind == STB_LANG_SYMBOL_VARIABLE){
                     if (syms.data[i].arg1 == 0){
                         STB_LANG_ITERATE_LINKED_LIST(GetLinkedListHead((*checker), Lang_TypeInfo_Destructor), head, Lang_TypeInfo_Destructor,
-                            if (head->typeinfo.type == syms.data[i].typeinfo.type){
+                            if (head->typeinfo.type == syms.data[i].typeinfo.type && head->typeinfo.ptrnum == syms.data[i].typeinfo.ptrnum){
                                 AppendToLinkedList(into, Lang_Parser_AST, (Lang_Parser_AST){.type=AST_DESTRUCT, .value=NULL, .left=(struct Lang_Parser_AST*)(&syms.data[i]), .middle=NULL, .right=(struct Lang_Parser_AST*)head, .offset=scope->offset, .file=scope->file, .flags=0});
                             }
                         );
@@ -1307,6 +1320,20 @@ STB_LANG_NEW_TYPEINFO(
     ),
     STB_LANG_TYPEINFO_CHECK_TYPES(
         // Allow array/ptr and integer arithmetic
+        if (left.type == AST_TYPE_ALIAS){
+            if (left.data.alias.n <= aliases.datalen && aliases.datalen != 0){
+                Lang_TypeInfo_Typeinfo *alias = (Lang_TypeInfo_Typeinfo*)aliases.data[left.data.alias.n].typeinfo;
+                left = *alias;
+            }
+        }
+
+        if (right.type == AST_TYPE_ALIAS){
+            if (right.data.alias.n <= aliases.datalen && aliases.datalen != 0){
+                Lang_TypeInfo_Typeinfo *alias = (Lang_TypeInfo_Typeinfo*)aliases.data[right.data.alias.n].typeinfo;
+                right = *alias;
+            }
+        }
+
         if ((left.ptrnum > 0 || left.type == AST_TYPE_ARRAY) && right.type == AST_TYPE_INT){
             return;
         }else if ((right.ptrnum > 0 || right.type == AST_TYPE_ARRAY) && left.type == AST_TYPE_INT){
@@ -1549,6 +1576,11 @@ STB_LANG_NEW_TYPEINFO(
             STB_LANG_EXPAND_RHS();
             STB_LANG_TYPEINFO_ASSUME_TYPE(STB_LANG_RHS(ast)->typeinfo);
             STB_LANG_EXPECT_TYPE_EQ(ast, STB_LANG_RHS(ast));
+        )
+        STB_LANG_TYPEINFO_CASE(AST_NOT,
+            int offset=ast->offset,file=ast->file;
+            ast->right = (struct Lang_Parser_AST*)STB_LANG_AST_LITERAL(AST_STRING, (Lang_Tokenizer_Token){.value="0"});
+            ast->type = AST_NEQ;
         )
         STB_LANG_TYPEINFO_CASE(AST_SIZEOF,
             char *size = arena_alloc(&g_arena, 100);
@@ -2762,7 +2794,7 @@ void STB_LANG_INVOKE_DRIVER(Lang_CodeGen_Arm *gen, char *output){
 
     char exec_path[100];
     snprintf(exec_path, 100, "__res/%s", output);
-    STB_LANG_DRIVER_RUN_SCRIPT("cat %s | pbcopy", asm_path);
+    // STB_LANG_DRIVER_RUN_SCRIPT("cat %s | pbcopy", asm_path);
     STB_LANG_DRIVER_RUN_SCRIPT("clang -O0 -arch arm64 -c %s -o %s", asm_path, exec_path);
     // STB_LANG_DRIVER_RUN_SCRIPT( "yasm -f macho64 %s -o %s", asm_path, exec_path);
     // STB_LANG_DRIVER_RUN_SCRIPT(exec_instr, asm_path, exec_path);
@@ -2971,8 +3003,11 @@ int main(int argc, char **argv){
 
 
     STB_LANG_DRIVER_RUN_SCRIPT("mkdir __res");
+    aliases = dymarray_Lang_TypeInfo_Alias_new();
     
     Lang_TypeInfo *typnf = lang_comp_data_from_file(input_file, 8, 0, 1, "main.o", NULL, 0);
+
+    
 
 
 
